@@ -1,8 +1,6 @@
-#ifndef __CIRCULAR_BUFFER__
-#define __CIRCULAR_BUFFER__
-
 #include "circular-buffer.h"
 #include "utils.h"
+
 void cbuffer_init(cbuffer_t *cbuffer) {
     memset(cbuffer->buffer, '\0', BUFF_SIZE);
     cbuffer->head = cbuffer->buffer;
@@ -53,4 +51,3 @@ int cbuffer_get(cbuffer_t *cbuffer, void *dest, int max_length, int length) {
     }
     return i + 1;
 }
-#endif

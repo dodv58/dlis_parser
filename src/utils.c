@@ -111,3 +111,69 @@ int uvari_to_int(unsigned int * dest, void * data){
         return 4;
     }
 }
+
+int utils_read_obname(obname_t * dest, unsigned char * data){
+    int len = 0;
+    int nbytes = 0;
+
+    len = uvari_to_int(&dest->origin, data);
+    data += len;
+    nbytes += len;
+
+    int origin_len = len;
+    
+
+    hex_to_number(&dest->copy_number, data, 1);
+    data++;
+
+    hex_to_number(&len, data, 1);
+    data++;
+    nbytes += 2 + len;
+
+    dest->name = malloc(len + 1);
+
+    memset(dest->name, len + 1, '\0');
+    memmove(dest->name, data, len);
+
+    // printf("utils_read_obname===> ");
+    data -= origin_len + 2;
+
+    // for(int i =0; i < nbytes; i++){
+    //     printf("_%x_", data[i]);
+    // }
+    // printf("\n");
+    return nbytes;
+}
+
+
+int utils_read_objref(unsigned char* type, obname_t* obname, unsigned char* data){
+    int nbytes_read = 0;
+    int len = 0;
+    hex_to_number(&len, data, 1);
+    data ++;
+    type = malloc(len+1);
+    memmove(type, data, len);
+    type[len] = '\0';
+    nbytes_read += len + 1;
+    data += len;
+
+    len = utils_read_obname(obname, data);
+    nbytes_read += len;
+    return nbytes_read;
+}
+
+
+bool str_to_number(void *dest, void * data, int len){
+    char * endptr;
+    unsigned char temp[len+1];
+    memset(temp, '\0', len+1);
+    memmove(temp, data, len);
+    if(len <= 4) {
+        *(int*)dest = strtoimax((char*)temp, &endptr, 10);
+        //*(int*)dest = atoi((char*)temp);
+        return true;
+    } else {
+        *(long long*)dest = strtoll((char*)temp, &endptr, 10);
+        return true;
+    }
+}

@@ -27,6 +27,11 @@ void test() {
     printf("%d\n", x << 1);
 }
 
+typedef struct linked_list_s {
+    void* node;
+    struct linked_list_s * next;
+} linked_list_t;
+
 int main() {
     // test_cbuffer();
     test();
