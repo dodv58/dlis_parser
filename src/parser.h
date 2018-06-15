@@ -18,7 +18,7 @@ void init_lr_segment(lr_segment_t *lr_segment);
 void init_lr_attribute(lr_attribute_t* attr);
 void init_lr_object(lr_object_t* obj, lr_attribute_t* attr);
 void init_obname_t(obname_t* obname);
-void init_fdata_t(fdata_t* fdata);
+void init_fdata_t(fdata_t* fdata, int number_of_channel);
 void init_frame_t(frame_t* frame, lr_object_t frame_obj, parser_t * parser);
 
 bool parse_sul(parser_t * parser);
@@ -32,6 +32,7 @@ int lr_read_attribute(logical_record_t* current_lr, int format, unsigned char* d
 int lr_read_object(logical_record_t* current_lr, unsigned char* data);
 void lr_read_absatr(logical_record_t* current_lr);
 int lr_read_componet_values(lr_attribute_t* attr, unsigned char* data);
+void lr_parse_iflr(parser_t* parser, unsigned char* data);
 
 void print_visible_records(parser_t *parser);
 void print_logical_record(parser_t *parser);

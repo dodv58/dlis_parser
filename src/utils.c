@@ -28,16 +28,21 @@ int utils_read_data(void* dest, void *data, int code){
 			break; 
 		case DLIS_UNORM: 	break; 
 		case DLIS_ULONG: 	break; 
-		case DLIS_UVARI: 	break; 
+		case DLIS_UVARI: {
+			nbytes = utils_read_uvari((unsigned int *)&dest, data);
+			break;
+		}
 		case DLIS_IDENT: 	break; 
 		case DLIS_ASCII: 	break; 
 		case DLIS_DTIME: 	break; 
 		case DLIS_ORIGIN: 	break; 
-		case DLIS_OBNAME: 	
-			{
-				break; 
-			}
-		case DLIS_OBJREF: 	break; 
+		case DLIS_OBNAME: {
+			nbytes = utils_read_obname((obname_t * )dest, (unsigned char *) data);
+			break; 
+		}
+		case DLIS_OBJREF: 	{
+			break; 
+		}
 		case DLIS_ATTREF: 	break; 
 		case DLIS_STATUS: 	break; 
 		case DLIS_UNITS: 	break; 
@@ -93,7 +98,7 @@ void hex_to_number(void *dest, void*data, int len) {
 }
 
 
-int uvari_to_int(unsigned int * dest, void * data){
+int utils_read_uvari(unsigned int * dest, void * data){
     int tmp = 0;
     hex_to_number(&tmp, data, 1);
     if(tmp < 128) {
@@ -116,7 +121,7 @@ int utils_read_obname(obname_t * dest, unsigned char * data){
     int len = 0;
     int nbytes = 0;
 
-    len = uvari_to_int(&dest->origin, data);
+    len = utils_read_uvari(&dest->origin, data);
     data += len;
     nbytes += len;
 
@@ -177,3 +182,55 @@ bool str_to_number(void *dest, void * data, int len){
         return true;
     }
 }
+
+int utils_read_data_to_str(unsigned char* dest, void* data, int code){
+	if(dest == NULL){
+		dest = malloc(1 * sizeof(unsigned char));
+	}
+	int nbytes = 0;
+	switch (code){
+		case DLIS_FSHORT:	break; 
+		case DLIS_FSINGL: 	break; 
+		case DLIS_FSING1: 	break; 
+		case DLIS_FSING2: 	break; 
+		case DLIS_ISINGL: 	break; 
+		case DLIS_VSINGL: 	break; 
+		case DLIS_FDOUBL: 	break; 
+		case DLIS_FDOUB1: 	break; 
+		case DLIS_FDOUB2: 	break; 
+		case DLIS_CSINGL: 	break; 
+		case DLIS_CDOUBL: 	break; 
+		case DLIS_SSHORT: 	break; 
+		case DLIS_SNORM: 	break; 
+		case DLIS_SLONG: 	break; 
+		case DLIS_USHORT: {	
+			
+			hex_to_number(dest, data, 1);
+			break; 
+		}
+		case DLIS_UNORM: 	break; 
+		case DLIS_ULONG: 	break; 
+		case DLIS_UVARI: {
+			nbytes = utils_read_uvari((unsigned int *)&dest, data);
+			break;
+		}
+		case DLIS_IDENT: 	break; 
+		case DLIS_ASCII: 	break; 
+		case DLIS_DTIME: 	break; 
+		case DLIS_ORIGIN: 	break; 
+		case DLIS_OBNAME: {
+			nbytes = utils_read_obname((obname_t * )dest, (unsigned char *) data);
+			break; 
+		}
+		case DLIS_OBJREF: 	{
+			break; 
+		}
+		case DLIS_ATTREF: 	break; 
+		case DLIS_STATUS: 	break; 
+		case DLIS_UNITS: 	break; 
+
+	}
+
+	return nbytes;
+}
+

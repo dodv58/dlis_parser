@@ -23,8 +23,20 @@ void test_cbuffer() {
 }
 
 void test() { 
-    unsigned int x = 2415919104;
-    printf("%d\n", x << 1);
+    char ** array;
+    array = malloc(10 * sizeof(char *));
+    for(int i = 0; i < 10; i++){
+        array[i] = malloc(10);
+        array[i] = "hello";
+    }
+    for(int i = 0; i < 10; i++){
+        printf("%s\n", array[1]);
+    }
+
+    char result[50];
+    float num = 23.34;
+    sprintf(result, "%f", num);
+    printf("\n The string for the num is %s", result);
 }
 
 typedef struct linked_list_s {

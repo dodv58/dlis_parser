@@ -14,10 +14,10 @@ int utils_read_data(void * dest, void *data, int code);
 unsigned int utils_get_length(unsigned int code);
 void hex_to_number(void *dest, void* data, int len);
 //return number of bytes are read
-int uvari_to_int(unsigned int * dest, void * data);
+int utils_read_uvari(unsigned int * dest, void * data);
 bool str_to_number(void *dest, void * data, int len);
 int utils_read_obname(obname_t * dest, unsigned char * data);
 int utils_read_objref(unsigned char* type, obname_t* obname, unsigned char* data);
-
+int utils_read_data_to_str(unsigned char* dest, void* data, int code);
 
 #endif

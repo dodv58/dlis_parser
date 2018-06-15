@@ -69,8 +69,7 @@ typedef struct logical_record_segment_s {
 typedef struct fdata_s
 {
     unsigned int index;
-    unsigned char * data;
-    struct fdata_s * right;
+    unsigned char ** data;
     struct fdata_s * next;
 } fdata_t;
 
@@ -79,11 +78,12 @@ typedef struct frame_s {
     lr_object_t frame;
     lr_object_t channels;
     lr_object_t* current_channel;
-
+    unsigned int number_of_channel;
+    unsigned int * representation_codes;
     fdata_t fdata;
+    fdata_t* current_fdata;
     struct  frame_s * next;
 } frame_t;
-
 
 typedef struct parser_s {
     SUL_t sul;

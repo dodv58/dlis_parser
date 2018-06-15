@@ -321,13 +321,13 @@ void parse_logical_record(parser_t* parser, unsigned char* body, int length){
                         break;
                 }
             } else{
-                obname_t obj_name;
-                init_obname_t(&obj_name);
-                int nbytes = 0;
+                // obname_t obj_name;
+                // init_obname_t(&obj_name);
+                // int nbytes = 0;
 
-                nbytes = utils_read_obname(&obj_name, body);
-                printf("...........IFLR origin %d copy_number %d obname %s\n",obj_name.origin, obj_name.copy_number, obj_name.name);
-
+                // nbytes = utils_read_data(&obj_name, body, DLIS_OBNAME);
+                // printf("...........IFLR origin %d copy_number %d obname %s\n",obj_name.origin, obj_name.copy_number, obj_name.name);
+                lr_parse_iflr(parser, body);
                 body += segment_len_remain;
                 segment_len_remain = 0;
             }
@@ -468,7 +468,8 @@ int lr_read_attribute(logical_record_t* current_lr, int format, unsigned char* d
     }
     if(format >= 1000){
         //read number of value (count)
-        len = uvari_to_int(&current_attr->count, data);
+        // len = utils_read_data(&current_attr->count, data, DLIS_UVARI);
+        len = utils_read_uvari(&current_attr->count, data); //<<<<<<<<<<<<<<<<<<<<<< why?
         data+=len;
         nbytes_read+=len;
         format -= 1000;
@@ -520,7 +521,7 @@ int lr_read_object(logical_record_t* current_lr, unsigned char* data){
 
     obname_t obj_name;
     init_obname_t(&obj_name);
-    int nbytes = utils_read_obname(&obj_name, data);
+    int nbytes = utils_read_data(&obj_name, data, DLIS_OBNAME);
 
     current_lr->current_obj->origin = obj_name.origin;
     current_lr->current_obj->copy_number = obj_name.copy_number;
@@ -556,7 +557,8 @@ int lr_read_componet_values(lr_attribute_t* attr, unsigned char* data){
         len = 0;
         for(int i = 0; i < attr->count; i++){
             unsigned int tmp_value = 0;
-            len += uvari_to_int(&tmp_value, data);
+            len += utils_read_data(&tmp_value, data, DLIS_UVARI);
+            // len += utils_read_uvari(&tmp_value, data);
             data += len;
         }
         data -= len;
@@ -570,7 +572,7 @@ int lr_read_componet_values(lr_attribute_t* attr, unsigned char* data){
         int nbytes = 0;
 
         for(int i = 0; i < attr->count; i++){
-            nbytes = utils_read_obname(&obj_name, data);
+            nbytes = utils_read_data(&obj_name, data, DLIS_OBNAME);
             len += nbytes;
             data += nbytes;
         }
@@ -617,6 +619,12 @@ void print_datasets(parser_t *parser){
         lr_object_t * obj = &current->frame;
         printf("(%d,%d,%s)\n", obj->origin, obj->copy_number, obj->name );
 
+        for (int i = 0; i < current->number_of_channel; ++i)
+        {
+            printf("%d_", *(current->representation_codes + i));
+        }
+        printf("\n");
+
         lr_object_t * channels = &current->channels;
         while(channels != NULL){
             printf("        (%d,%d,%s) ", channels->origin, channels->copy_number, channels->name );
@@ -652,16 +660,17 @@ void print_channels(parser_t *parser){
     }
 }
 
-void init_fdata_t(fdata_t* fdata){
-    fdata->data = NULL;
+void init_fdata_t(fdata_t* fdata, int number_of_channel){
+    fdata->index = 0;
+    fdata->data = malloc(number_of_channel * sizeof(unsigned char*));
     fdata->next = NULL;
-    fdata->right = NULL;
 }
 
 
 void init_frame_t(frame_t* frame, lr_object_t frame_obj, parser_t* parser){
     frame->frame = frame_obj;
     frame->current_channel = NULL;
+    frame->current_fdata = NULL;
 
     lr_attribute_t* attr = NULL;
     const char* label = "CHANNELS";
@@ -670,7 +679,7 @@ void init_frame_t(frame_t* frame, lr_object_t frame_obj, parser_t* parser){
         attr = attr->next;
     }
     if(attr == NULL) {
-        printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+        printf("!!!!!!!!!!!!!!!!!!!!!!!!!!! there is no CHANNELS attribute\n");
         return;
     }
 
@@ -680,14 +689,16 @@ void init_frame_t(frame_t* frame, lr_object_t frame_obj, parser_t* parser){
     }
 
     if(channel_lr == NULL){
-        printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+        printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@ channel set is not presented\n");
         return;
     }
 
+    frame->number_of_channel = attr->count;
     obname_t channels[attr->count];
+    frame->representation_codes = malloc(sizeof(unsigned int) * frame->number_of_channel);
     unsigned char* p = attr->value;
     for(int i = 0; i < attr->count; i++){
-        int nbytes = utils_read_obname(&channels[i], p);
+        int nbytes = utils_read_data(&channels[i], p, DLIS_OBNAME);
         p += nbytes;
 
         lr_object_t * obj = &channel_lr->objects;
@@ -700,14 +711,67 @@ void init_frame_t(frame_t* frame, lr_object_t frame_obj, parser_t* parser){
                     frame->current_channel = frame->current_channel->next;
                 }
                 memmove(frame->current_channel, obj, sizeof(lr_object_t));
+
+                //read representation code of channel and put to representation_codes of frame
+                const char * code_label = "REPRESENTATION-CODE";
+                lr_attribute_t* channel_attr = &frame->current_channel->attributes;
+                while (channel_attr != NULL && strcmp((const char *) code_label, (const char *) channel_attr->label) != 0){
+                    channel_attr = channel_attr->next;
+                }
+                if(channel_attr == NULL){
+                    printf("there is no representation_code\n");
+                    break;
+                }
+
+                utils_read_data(frame->representation_codes + i, channel_attr->value, DLIS_USHORT);
+
                 frame->current_channel->next = NULL;
                 break;
             }
-
             obj = obj->next;
         }
     }
 
+    init_fdata_t(&frame->fdata, frame->number_of_channel);
+
     frame->next = NULL;
+
+}
+
+void lr_parse_iflr(parser_t* parser, unsigned char* data){
+    obname_t obj_name;
+    init_obname_t(&obj_name);
+    int nbytes = 0;
+
+    nbytes = utils_read_data(&obj_name, data, DLIS_OBNAME);
+    printf("...........IFLR origin %d copy_number %d obname %s",obj_name.origin, obj_name.copy_number, obj_name.name);
+    data += nbytes;
+
+    //get frame referenced by the IFLR
+    frame_t* frame = &parser->frames;
+    while(frame != NULL && strcmp((const char*)frame->frame.name, (const char*) obj_name.name) != 0){
+        frame = frame->next;
+    }
+    if(frame == NULL){
+        printf("there is no frame %s\n", obj_name.name);
+        return;
+    }
+
+    if(frame->current_fdata == NULL){
+        frame->current_fdata = &frame->fdata;
+    } else {
+        frame->current_fdata->next = malloc(sizeof(fdata_t));
+        init_fdata_t(frame->current_fdata->next, frame->number_of_channel);
+        frame->current_fdata = frame->current_fdata->next;
+    }
+
+    nbytes = utils_read_uvari(&frame->current_fdata->index, data);
+    data += nbytes;
+
+    for(int i = 0; i < frame->number_of_channel; i++){
+        unsigned int representation_code = *(frame->representation_codes + i);
+        // int len = utils_read_data()
+    }
+
 
 }
