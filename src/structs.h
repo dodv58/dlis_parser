@@ -69,7 +69,7 @@ typedef struct logical_record_segment_s {
 typedef struct fdata_s
 {
     unsigned int index;
-    unsigned char ** data;
+    char ** data;
     struct fdata_s * next;
 } fdata_t;
 

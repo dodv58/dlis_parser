@@ -29,7 +29,7 @@ int utils_read_data(void* dest, void *data, int code){
 		case DLIS_UNORM: 	break; 
 		case DLIS_ULONG: 	break; 
 		case DLIS_UVARI: {
-			nbytes = utils_read_uvari((unsigned int *)&dest, data);
+			nbytes = utils_read_uvari((unsigned int *)dest, data);
 			break;
 		}
 		case DLIS_IDENT: 	break; 
@@ -183,53 +183,74 @@ bool str_to_number(void *dest, void * data, int len){
     }
 }
 
-int utils_read_data_to_str(unsigned char* dest, void* data, int code){
-	if(dest == NULL){
-		dest = malloc(1 * sizeof(unsigned char));
-	}
+int utils_read_data_to_str(char* dest, unsigned char* data, int code){
+	printf("........................utils_read_data_to_str %d\n", code);
 	int nbytes = 0;
 	switch (code){
 		case DLIS_FSHORT:	break; 
-		case DLIS_FSINGL: 	break; 
+		case DLIS_FSINGL: 	{
+			float value;
+			memmove(&value, data, 4);
+			if(dest == NULL) dest = malloc(30 * sizeof( char));
+			printf(">>>>>>>>>>> %f\n", value);
+			sprintf(dest, "%f", value);
+			nbytes = 4;
+			break; 
+		}
 		case DLIS_FSING1: 	break; 
 		case DLIS_FSING2: 	break; 
 		case DLIS_ISINGL: 	break; 
 		case DLIS_VSINGL: 	break; 
-		case DLIS_FDOUBL: 	break; 
+		case DLIS_FDOUBL: 	{
+			double value;
+			memmove(&value, data, 8);
+			if(dest == NULL) dest = malloc(30 * sizeof( char));
+			printf(">>>>>>>>>>> %f\n", value);
+			sprintf(dest, "%f", value);
+			nbytes = 8;
+			break; 
+		}
 		case DLIS_FDOUB1: 	break; 
 		case DLIS_FDOUB2: 	break; 
 		case DLIS_CSINGL: 	break; 
 		case DLIS_CDOUBL: 	break; 
 		case DLIS_SSHORT: 	break; 
-		case DLIS_SNORM: 	break; 
-		case DLIS_SLONG: 	break; 
-		case DLIS_USHORT: {	
-			
-			hex_to_number(dest, data, 1);
+		case DLIS_SNORM: 	{
+			short value;
+			memmove(&value, data, 2);
+			if(dest == NULL) dest = malloc(30 * sizeof( char));
+			printf(">>>>>>>>>>> %d\n", value);
+			sprintf(dest, "%d", value);
+			nbytes = 2;
 			break; 
 		}
+		case DLIS_SLONG: 	{
+			int value;
+			memmove(&value, data, 4);
+			if(dest == NULL) dest = malloc(30 * sizeof( char));
+			printf(">>>>>>>>>>> %d\n", value);
+			sprintf(dest, "%d", value);
+			nbytes = 4;
+			break; 
+			break; 
+		}
+		case DLIS_USHORT: 	break;
 		case DLIS_UNORM: 	break; 
 		case DLIS_ULONG: 	break; 
-		case DLIS_UVARI: {
-			nbytes = utils_read_uvari((unsigned int *)&dest, data);
-			break;
-		}
+		case DLIS_UVARI: 	break;
 		case DLIS_IDENT: 	break; 
 		case DLIS_ASCII: 	break; 
 		case DLIS_DTIME: 	break; 
 		case DLIS_ORIGIN: 	break; 
-		case DLIS_OBNAME: {
-			nbytes = utils_read_obname((obname_t * )dest, (unsigned char *) data);
-			break; 
-		}
-		case DLIS_OBJREF: 	{
-			break; 
-		}
+		case DLIS_OBNAME: 	break;
+		case DLIS_OBJREF: 	break;
 		case DLIS_ATTREF: 	break; 
 		case DLIS_STATUS: 	break; 
 		case DLIS_UNITS: 	break; 
 
 	}
+
+	printf("........................%d ___  %s\n", dest, dest);
 
 	return nbytes;
 }

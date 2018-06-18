@@ -327,6 +327,7 @@ void parse_logical_record(parser_t* parser, unsigned char* body, int length){
 
                 // nbytes = utils_read_data(&obj_name, body, DLIS_OBNAME);
                 // printf("...........IFLR origin %d copy_number %d obname %s\n",obj_name.origin, obj_name.copy_number, obj_name.name);
+                printf("================> %d\n", segment_len_remain);
                 lr_parse_iflr(parser, body);
                 body += segment_len_remain;
                 segment_len_remain = 0;
@@ -468,8 +469,7 @@ int lr_read_attribute(logical_record_t* current_lr, int format, unsigned char* d
     }
     if(format >= 1000){
         //read number of value (count)
-        // len = utils_read_data(&current_attr->count, data, DLIS_UVARI);
-        len = utils_read_uvari(&current_attr->count, data); //<<<<<<<<<<<<<<<<<<<<<< why?
+        len = utils_read_data(&current_attr->count, data, DLIS_UVARI);
         data+=len;
         nbytes_read+=len;
         format -= 1000;
@@ -558,7 +558,6 @@ int lr_read_componet_values(lr_attribute_t* attr, unsigned char* data){
         for(int i = 0; i < attr->count; i++){
             unsigned int tmp_value = 0;
             len += utils_read_data(&tmp_value, data, DLIS_UVARI);
-            // len += utils_read_uvari(&tmp_value, data);
             data += len;
         }
         data -= len;
@@ -662,7 +661,10 @@ void print_channels(parser_t *parser){
 
 void init_fdata_t(fdata_t* fdata, int number_of_channel){
     fdata->index = 0;
-    fdata->data = malloc(number_of_channel * sizeof(unsigned char*));
+    fdata->data = malloc(number_of_channel * sizeof(char*));
+    // for(int i = 0; i < number_of_channel; i++){
+    //     *fdata->data + i = malloc(30 * sizeof(char *));
+    // }
     fdata->next = NULL;
 }
 
@@ -742,10 +744,12 @@ void lr_parse_iflr(parser_t* parser, unsigned char* data){
     obname_t obj_name;
     init_obname_t(&obj_name);
     int nbytes = 0;
+    int tmp = 0;
 
     nbytes = utils_read_data(&obj_name, data, DLIS_OBNAME);
-    printf("...........IFLR origin %d copy_number %d obname %s",obj_name.origin, obj_name.copy_number, obj_name.name);
+    printf("...........IFLR origin %d copy_number %d obname %s \n",obj_name.origin, obj_name.copy_number, obj_name.name);
     data += nbytes;
+    tmp += nbytes;
 
     //get frame referenced by the IFLR
     frame_t* frame = &parser->frames;
@@ -765,13 +769,16 @@ void lr_parse_iflr(parser_t* parser, unsigned char* data){
         frame->current_fdata = frame->current_fdata->next;
     }
 
-    nbytes = utils_read_uvari(&frame->current_fdata->index, data);
+    nbytes = utils_read_data(&frame->current_fdata->index, data, DLIS_UVARI);
     data += nbytes;
+    tmp += nbytes;
 
     for(int i = 0; i < frame->number_of_channel; i++){
         unsigned int representation_code = *(frame->representation_codes + i);
-        // int len = utils_read_data()
+        int len = utils_read_data_to_str(frame->current_fdata->data[i], data, representation_code);
+        data += len;
+        tmp += len;
     }
-
+    printf("========================> %d\n", tmp);
 
 }
