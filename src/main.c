@@ -1,22 +1,28 @@
+#include <stdlib.h>
 #include <stdio.h>
-#include "utils.h"
-#include "parser.h"
-#include <string.h>
-#include "constants.h"
+#include "dlis.h"
+int main(int argc, char *argv[]) {
+    byte_t buffer[1024];
+    char *file_name;
+    int byte_read;
 
-#define EXIT_IF_TRUE(x) if ((x)) \\
-{ \\
-	fprintf(stderr, "ERROR \n"); \\
-	exit(-1); \\
-}
-
-int main() {
-	print_log("hi");
-	parser_t parser;
-	init_parser(&parser);
-	char* file_path = "data/AP_1225in_MREX_E_MAIN.dlis";
-    
-    parser_parses( &parser, file_path);
-    
-	return 0;
+    file_name = "somefile.dlis";
+    if (argc >= 2) {
+        file_name = argv[1];
+    }
+    dlis_t dlis;
+    dlis_init(&dlis);
+    FILE *f = fopen(file_name, "rb");
+    if (f == NULL) {
+        fprintf(stderr, "Error open file");
+        exit(-1);
+    }
+    while(!feof(f) ) {
+        byte_read = fread(buffer, 100, 1, f);
+        if (byte_read < 0) {
+            fprintf(stderr,"Error reading file");
+            exit(-1);
+        }
+        dlis_read(&dlis, buffer, byte_read);
+    }
 }

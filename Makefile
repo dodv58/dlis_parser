@@ -1,26 +1,17 @@
 .PHONY: all clean
-SDIR := src
-SRCS := utils.c parser.c circular-buffer.c
-M_SRCS := main.c
-T_SRCS := test.c 
-ODIR := build
-OBJS := $(SRCS:.c=.o)
+OUTDIR:=output
+APP:=sayhello
+S_DIR:=src
 
-INCLUDES :=
-LIBS :=
+SRCS:=dlis.c main.c
 
-all: dlis
+all: $(APP)
 
-test: testApp
+$(APP): $(addprefix $(S_DIR)/, $(SRCS:.c=.o))
+	gcc -o $@ $^
 
-testApp: $(addprefix $(ODIR)/, $(OBJS)) $(ODIR)/$(T_SRCS:.c=.o)
-	gcc -o $@ $^ $(LIBS)
+$(S_DIR)/%.o: $(S_DIR)/%.c
+	gcc -c -o $@ $<
 
-dlis: $(addprefix $(ODIR)/, $(OBJS)) $(ODIR)/$(M_SRCS:.c=.o)
-	gcc -o $@ $^ $(LIBS)
-	
-$(ODIR)/%.o : $(SDIR)/%.c
-	gcc -c -o $@ $^ $(INCLUDES)
-	
 clean:
-	rm -fr dlis testApp $(addprefix $(ODIR)/,$(OBJS) $(T_SRCS:.c=.o) $(M_SRCS:.c=.o))
+	rm -fr $(APP) $(S_DIR)/*.o
