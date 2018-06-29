@@ -6,7 +6,7 @@ int main(int argc, char *argv[]) {
     char *file_name;
     int byte_read;
 
-    file_name = "somefile.dlis";
+    file_name = "sample.dlis";
     if (argc >= 2) {
         file_name = argv[1];
     }
@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
     while(!feof(f) ) {
-        byte_read = fread(buffer, 100, 1, f);
+        byte_read = fread(buffer, 1, 100, f);
         if (byte_read < 0) {
             fprintf(stderr,"Error reading file");
             exit(-1);

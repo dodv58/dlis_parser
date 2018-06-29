@@ -1,9 +1,9 @@
 .PHONY: all clean
 OUTDIR:=output
-APP:=sayhello
+APP:=dlis-parse
 S_DIR:=src
 
-SRCS:=dlis.c main.c
+SRCS:=common.c dlis.c main.c
 
 all: $(APP)
 

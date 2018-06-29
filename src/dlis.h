@@ -1,5 +1,5 @@
-#ifndef __DLIST_H__
-#define __DLIST_H__
+#ifndef __DLIS_H__
+#define __DLIS_H__
 
 typedef unsigned char byte_t;
 typedef struct dlis_s dlis_t;
@@ -75,7 +75,8 @@ struct dlis_s {
 
     byte_t buffer[DLIST_BUFF_NUM][DLIST_BUFF_SIZE];
 
-    void (*on_sul_f)(byte_t *sul, int len);
+    //void (*on_sul_f)(byte_t *sul, int len);
+    void (*on_sul_f)(int seq, char *version, char *structure, int max_rec_len, char *ssi);
     void (*on_visible_record_begin_f)(int vr_idx, int vr_len, int *version);
     void (*on_visible_record_end_f)(int vr_idx);
     void (*on_logical_record_begin_f)(int lr_idx);

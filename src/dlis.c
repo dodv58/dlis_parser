@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <strings.h>
 #include "dlis.h"
+#include "common.h"
 
 void parse(dlis_t *dlis);
 
@@ -15,61 +16,11 @@ int parse_unorm(byte_t *data) {
     printf("low:%d high:%d result:%d\n", low, high, result);
     return low + (high<<8);
 }
-void hexDump (char *desc, void *addr, int len) {
-    int i;
-    unsigned char buff[17];
-    unsigned char *pc = (unsigned char*)addr;
 
-    // Output description if given.
-    if (desc != NULL)
-        printf ("%s:\n", desc);
-
-    if (len == 0) {
-        printf("  ZERO LENGTH\n");
-        return;
-    }
-    if (len < 0) {
-        printf("  NEGATIVE LENGTH: %i\n",len);
-        return;
-    }
-
-    // Process every byte in the data.
-    for (i = 0; i < len; i++) {
-        // Multiple of 16 means new line (with line offset).
-
-        if ((i % 16) == 0) {
-            // Just don't print ASCII for the zeroth line.
-            if (i != 0)
-                printf ("  %s\n", buff);
-
-            // Output the offset.
-            printf ("  %04x ", i);
-        }
-
-        // Now the hex code for the specific character.
-        printf (" %02x", pc[i]);
-
-        // And store a printable ASCII character for later.
-        if ((pc[i] < 0x20) || (pc[i] > 0x7e))
-            buff[i % 16] = '.';
-        else
-            buff[i % 16] = pc[i];
-        buff[(i % 16) + 1] = '\0';
-    }
-
-    // Pad out last line if not exactly 16 characters.
-    while ((i % 16) != 0) {
-        printf ("   ");
-        i++;
-    }
-
-    // And print the final ASCII bit.
-    printf ("  %s\n", buff);
+void on_sul_default(int seq, char *version, char *structure, int max_rec_len, char *ssi) {
+    printf("seq:%d,version:%s,structure:%s,max_rec_len:%d,ssi:%s|\n", seq, version, structure, max_rec_len, ssi);
 }
 
-void on_sul_default(byte_t *sul, int len) {
-    hexDump("--SUL--\n", sul, len);
-}
 void on_visible_record_begin_default(int vr_idx, int vr_len, int *version) {
     printf("--Visible Record--\n");
     printf("vr_idx: %d\n", vr_idx);
@@ -81,6 +32,7 @@ void on_visible_record_end_default(int vr_idx) {
     printf("vr_idx: %d\n", vr_idx);
 }
 void dlis_init(dlis_t *dlis) {
+    printf("dlis init\n");
     dlis->buffer_idx = 0;
     dlis->byte_idx = 0;
     dlis->max_byte_idx = 0;
@@ -96,6 +48,7 @@ void dlis_init(dlis_t *dlis) {
     //..........
 }
 void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
+    printf("dlis_read: in_count:%d, max_byte_idx:%d\n", in_count, dlis->max_byte_idx);
     int b_idx = dlis->buffer_idx;
     byte_t *buffer = dlis->buffer[b_idx];
     memcpy(&(buffer[dlis->max_byte_idx]), in_buff, in_count);
@@ -121,27 +74,55 @@ void parse_lrs_attr(byte_t attr, int *lr_eflr, int *lr_begin, int *lr_end,
 #define LRS_HEADER_LEN 4
 
 void parse_sul(dlis_t *dlis) {
+    printf("parse_sul\n");
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
-    byte_t *p_sul = &(p_buffer[dlis->byte_idx]);
-    dlis->on_sul_f( p_sul, SUL_LEN );
+    byte_t *sul = &(p_buffer[dlis->byte_idx]);
+
+    // Check & Process SUL
+    hexDump("--SUL--\n", sul, SUL_LEN);
+    char seq[20];
+    char version[20];
+    char structure[20];
+    char max_rec_len[20];
+    char ssi[80];
+    trim(seq, 4, (const char *)sul);
+    trim(version, 5, (const char *)(sul + 4));
+    trim(structure, 6, (const char *)(sul + 9));
+    trim(max_rec_len, 5, (const char *)(sul + 15));
+    trim(ssi, 60, (const char *)(sul + 20));
+    
+    // check SUL
+    if (!is_integer(seq, strlen(seq)) || !is_integer(max_rec_len, strlen(max_rec_len))) {
+        fprintf(stderr, "Not a valid dlis file (invalid SUL)\n");
+        exit(-1);
+    }
+
+    int seq_number = strtol(seq, NULL, 10);
+    int max_record_length = strtol(max_rec_len, NULL, 10);
     dlis->byte_idx += SUL_LEN;
+
+    dlis->on_sul_f(seq_number, version, structure, max_record_length, ssi);
 }
 
 void parse_vr_header(dlis_t *dlis) {
+    /*
     if (dlis->vr_idx % 2) {
         fprintf(stderr, "Unexpected\n");
         exit(-1);
     }
     int vr_idx = dlis->vr_idx/2;
     dlis->vr_idx++;
-
+    */
+    byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
+    byte_t *vr_header = &(p_buffer[dlis->byte_idx]);
     // parse vrlen
+    hexDump("-- VR_HEADER --", vr_header, VR_HEADER_LEN);
     int vr_len = parse_unorm(&(dlis->buffer[dlis->buffer_idx][dlis->byte_idx]));
     dlis->byte_idx += 2;
     // parse version
     dlis->byte_idx++;
     int version = parse_ushort(&(dlis->buffer[dlis->buffer_idx][dlis->byte_idx++]));
-    dlis->on_visible_record_begin_f(vr_idx, vr_len, &version);
+    dlis->on_visible_record_begin_f(dlis->vr_idx, vr_len, &version);
 }
 
 void parse_lrs_header(dlis_t *dlis) {
@@ -174,19 +155,27 @@ void parse(dlis_t *dlis) {
     byte_t *buffer = dlis->buffer[b_idx];
     if (dlis->byte_idx == dlis->max_byte_idx) return;
     while (1) {
+        printf("parse loop: parse_state.code:%d, max_byte_idx:%d, byte_idx:%d\n", 
+            dlis->parse_state.code, dlis->max_byte_idx, dlis->byte_idx);
+
         switch(dlis->parse_state.code) {
             case EXPECTING_SUL:
-                if (dlis->max_byte_idx - dlis->byte_idx < SUL_LEN) break;
+                if (dlis->max_byte_idx - dlis->byte_idx < SUL_LEN) 
+                    goto end_loop;
                 parse_sul(dlis);
                 dlis->parse_state.code = EXPECTING_VR;
                 break;
             case EXPECTING_VR:
-                if (dlis->max_byte_idx - dlis->byte_idx < VR_HEADER_LEN) break;
+                if (dlis->max_byte_idx - dlis->byte_idx < VR_HEADER_LEN) 
+                    goto end_loop;
                 parse_vr_header(dlis);
                 dlis->parse_state.code = EXPECTING_LRS;
                 break;
             case EXPECTING_LRS:
-                if (dlis->max_byte_idx - dlis->byte_idx < LRS_HEADER_LEN) break;
+                printf("parse vr success\n");
+                exit(0);
+                if (dlis->max_byte_idx - dlis->byte_idx < LRS_HEADER_LEN) 
+                    goto end_loop;
                 parse_lrs_header(dlis);
                 dlis->parse_state.code = LRS_INPROG;
                 break;
@@ -199,4 +188,6 @@ void parse(dlis_t *dlis) {
                 break;
         }
     }
+end_loop:
+    return;
 }
