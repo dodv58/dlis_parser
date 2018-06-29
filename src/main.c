@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
     while(!feof(f) ) {
-        byte_read = fread(buffer, 1, 100, f);
+        byte_read = fread(buffer, 1, 81, f);
         if (byte_read < 0) {
             fprintf(stderr,"Error reading file");
             exit(-1);

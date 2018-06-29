@@ -14,8 +14,8 @@ typedef struct parse_state_s parse_state_t;
 enum lrs_iflr_type_e {
     FDATA = 0,
     NOFORMAT = 1,
-    EOD = 127,
-
+    IFLR_RESERVED = 2, // for marking
+    EOD = 127
 };
 
 enum lrs_eflr_type_e {
@@ -30,7 +30,25 @@ enum lrs_eflr_type_e {
     UDI = 8,
     LNAME = 9,
     SPEC = 10,
-    DICT = 11
+    DICT = 11,
+    EFLR_RESERVED = 12 // for marking
+};
+
+// Defined in dlis.c
+extern const char * EFLR_TYPE_NAMES[];
+extern const char * IFLR_TYPE_NAMES[];
+extern const char * EFLR_COMP_ROLE_NAMES[];
+
+enum lrs_eflr_component_role_e {
+    EFLR_COMP_ABSATR = 0,
+    EFLR_COMP_ATTRIB = 1,
+    EFLR_COMP_INVATR = 2,
+    EFLR_COMP_OBJECT = 3,
+    EFLR_COMP_RESERVED = 4,
+    EFLR_COMP_RDSET = 5,
+    EFLR_COMP_RSET = 6,
+    EFLR_COMP_SET = 7,
+    EFLR_COMP_MAX_ROLE = 8
 };
 
 enum lrs_structure_e {
@@ -42,14 +60,26 @@ enum parse_state_code_e {
     EXPECTING_SUL = 0,
     EXPECTING_VR = 1,
     EXPECTING_LRS = 2,
-    LRS_INPROG = 3
+    EXPECTING_EFLR_COMP = 3
 };
 
 struct parse_state_s {
     parse_state_code_t code;
+    
+    // data related to parsing visibleRecord
+    int vr_len;
+    // ....
+
+    // data related to parsing logicalRecordSegment
     int lrs_len;
     int lrs_byte_cnt;
+    byte_t lrs_attr;
+    int lrs_type;
 
+    // data related to eflr component
+    byte_t eflr_comp_first_byte;
+    
+    /*
     int is_eflr;
     int lr_begin;
     int lr_end;
@@ -58,6 +88,7 @@ struct parse_state_s {
     int has_checksum;
     int has_trailing_len;
     int has_padding;
+    */
 };
 
 #define DLIST_BUFF_SIZE (64*1024)
@@ -75,11 +106,10 @@ struct dlis_s {
 
     byte_t buffer[DLIST_BUFF_NUM][DLIST_BUFF_SIZE];
 
-    //void (*on_sul_f)(byte_t *sul, int len);
     void (*on_sul_f)(int seq, char *version, char *structure, int max_rec_len, char *ssi);
-    void (*on_visible_record_begin_f)(int vr_idx, int vr_len, int *version);
+    void (*on_visible_record_header_f)(int vr_idx, int vr_len, int version);
     void (*on_visible_record_end_f)(int vr_idx);
-    void (*on_logical_record_begin_f)(int lr_idx);
+    void (*on_logical_record_begin_f)(int lrs_len, byte_t lrs_attr, int lrs_type);
     void (*on_logical_record_end_f)(int lr_idx);
 
     void (*on_eflr_f)(int lrs_idx,

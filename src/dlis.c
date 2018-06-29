@@ -1,10 +1,57 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <strings.h>
+#include <unistd.h>
 #include "dlis.h"
 #include "common.h"
 
+const char * EFLR_TYPE_NAMES[] = {
+    "FHRL", "OLR", "AXIS", "CHANNL", "FRAME", "STATIC", "SCRIPT", "UPDATE", "UDI", "LNAME",
+    "SPEC", "DICT"
+};
+
+const char * IFLR_TYPE_NAMES[] = {
+    "FDATA", "NOFORMAT"
+};
+
+const char * EFLR_COMP_ROLE_NAMES[] = {
+    "ABSATR",
+    "ATTRIB",
+    "INVATR",
+    "OBJECT",
+    "RESERVED",
+    "RDSET",
+    "RSET",
+    "SET"
+};
+// internal functions 
 void parse(dlis_t *dlis);
+int parse_ushort(byte_t *data);
+int parse_unorm(byte_t *data);
+void parse_sul(dlis_t *dlis);
+void parse_vr_header(dlis_t *dlis);
+void parse_lrs_header(dlis_t *dlis);
+void parse_eflr_component(dlis_t *dlis);
+
+int lrs_attr_is_eflr(parse_state_t *state);
+int lrs_attr_is_first_lrs(parse_state_t *state);
+
+int lrs_attr_is_last_lrs(parse_state_t *state);
+int lrs_attr_is_encrypted(parse_state_t *state);
+int lrs_attr_has_encryption_packet(parse_state_t *state);
+int lrs_attr_has_checksum(parse_state_t *state);
+int lrs_attr_has_trailing(parse_state_t *state);
+int lrs_attr_has_padding(parse_state_t *state);
+const char *lrs_type_get_name(parse_state_t *state);
+
+int eflr_comp_is_set(parse_state_t *state);
+int eflr_comp_is_rset(parse_state_t *state);
+int eflr_comp_is_rset(parse_state_t *state);
+int eflr_comp_is_rdset(parse_state_t *state);
+int eflr_comp_is_absatr(parse_state_t *state);
+int eflr_comp_is_attrib(parse_state_t *state);
+int eflr_comp_is_invatr(parse_state_t *state);
+int eflr_comp_is_object(parse_state_t *state);
 
 int parse_ushort(byte_t *data) {
     return (int)*data;
@@ -12,8 +59,7 @@ int parse_ushort(byte_t *data) {
 int parse_unorm(byte_t *data) {
     int high = (int)data[0];
     int low = (int)data[1];
-    int result = low + (high<<8);
-    printf("low:%d high:%d result:%d\n", low, high, result);
+    //int result = low + (high<<8);
     return low + (high<<8);
 }
 
@@ -21,15 +67,16 @@ void on_sul_default(int seq, char *version, char *structure, int max_rec_len, ch
     printf("seq:%d,version:%s,structure:%s,max_rec_len:%d,ssi:%s|\n", seq, version, structure, max_rec_len, ssi);
 }
 
-void on_visible_record_begin_default(int vr_idx, int vr_len, int *version) {
+void on_visible_record_header_default(int vr_idx, int vr_len, int version) {
     printf("--Visible Record--\n");
-    printf("vr_idx: %d\n", vr_idx);
-    printf("vr_len: %d\n", vr_len);
-    hexDump("version:", version, sizeof(version));
+    printf("vr_idx:%d, vr_len:%d, version:%d\n", vr_idx, vr_len, version);
 }
 void on_visible_record_end_default(int vr_idx) {
     printf("--Visible Record End--\n");
     printf("vr_idx: %d\n", vr_idx);
+}
+void on_logical_record_begin_default(int lrs_len, byte_t lrs_attr, int lrs_type) {
+    printf("--Logical record begin-- %d, %d, %d\n", lrs_len, lrs_attr, lrs_type);
 }
 void dlis_init(dlis_t *dlis) {
     printf("dlis init\n");
@@ -43,8 +90,9 @@ void dlis_init(dlis_t *dlis) {
     dlis->parse_state.code = EXPECTING_SUL;
     //bzero(dlis, sizeof(dlis_t));
     dlis->on_sul_f = &on_sul_default;
-    dlis->on_visible_record_begin_f = &on_visible_record_begin_default;
+    dlis->on_visible_record_header_f = &on_visible_record_header_default;
     dlis->on_visible_record_end_f = &on_visible_record_end_default;
+    dlis->on_logical_record_begin_f = &on_logical_record_begin_default;
     //..........
 }
 void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
@@ -55,20 +103,7 @@ void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
     dlis->max_byte_idx += in_count;
     parse(dlis);
 }
-void parse_lrs_attr(byte_t attr, int *lr_eflr, int *lr_begin, int *lr_end, 
-    int *lr_encrypted, int *lr_encrypted_packet, int *has_checksum, 
-    int *has_trailing_len, int *has_padding) 
-{
-    *lr_begin = attr & 0x01;
-    *lr_end = attr & 0x02;
-    /* TODO
-    *lr_encrypted = attr & 0x04;
-    *has_encrypted_packet = attr & ;
-    *has_checksum = attr & ;
-    *has_trailing_len =  attr & ;
-    *has_padding = attr & ;
-    */
-}
+
 #define SUL_LEN 80
 #define VR_HEADER_LEN 4
 #define LRS_HEADER_LEN 4
@@ -79,7 +114,7 @@ void parse_sul(dlis_t *dlis) {
     byte_t *sul = &(p_buffer[dlis->byte_idx]);
 
     // Check & Process SUL
-    hexDump("--SUL--\n", sul, SUL_LEN);
+    //hexDump("--SUL--\n", sul, SUL_LEN);
     char seq[20];
     char version[20];
     char structure[20];
@@ -114,43 +149,187 @@ void parse_vr_header(dlis_t *dlis) {
     dlis->vr_idx++;
     */
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
-    byte_t *vr_header = &(p_buffer[dlis->byte_idx]);
+
     // parse vrlen
-    hexDump("-- VR_HEADER --", vr_header, VR_HEADER_LEN);
-    int vr_len = parse_unorm(&(dlis->buffer[dlis->buffer_idx][dlis->byte_idx]));
+    int vr_len = parse_unorm(&(p_buffer[dlis->byte_idx]));
     dlis->byte_idx += 2;
-    // parse version
+    
+    // get marker byte
+    if (p_buffer[dlis->byte_idx] != 0xFF) {
+        fprintf(stderr, 
+            "Invalid visible record header: expecting 0xFF but we got 0x%x\n", 
+            p_buffer[dlis->byte_idx]);
+        exit(-1);
+    }
     dlis->byte_idx++;
-    int version = parse_ushort(&(dlis->buffer[dlis->buffer_idx][dlis->byte_idx++]));
-    printf("vr_len:%d, version:%d\n", vr_len, version);
-    dlis->on_visible_record_begin_f(dlis->vr_idx, vr_len, &version);
+
+    // parse version
+    int version = parse_ushort(&(p_buffer[dlis->byte_idx]));
+    dlis->byte_idx++;
+    
+    // update parsing state
+    parse_state_t *state = &(dlis->parse_state);
+    state->vr_len = vr_len;
+    
+    dlis->on_visible_record_header_f(dlis->vr_idx, vr_len, version);
 }
 
 void parse_lrs_header(dlis_t *dlis) {
     parse_state_t *state = &(dlis->parse_state);
-    // parse lrs length
-    state->lrs_len = parse_unorm(&(dlis->buffer[dlis->buffer_idx][dlis->byte_idx]));
-    state->lrs_byte_cnt = 0;
-    dlis->byte_idx += 2;
-    
-    byte_t attr = dlis->buffer[dlis->buffer_idx][dlis->byte_idx];
+    byte_t * p_buffer = dlis->buffer[dlis->buffer_idx];
 
-    parse_lrs_attr(attr, &state->is_eflr, &state->lr_begin, &state->lr_end, 
+    hexDump("-- LRS HEADER --", &(p_buffer[dlis->byte_idx]), LRS_HEADER_LEN);
+    
+    // parse lrs length
+    int lrs_len = parse_unorm(&(p_buffer[dlis->byte_idx]));
+    dlis->byte_idx += 2;
+
+    // parse lrs attributes
+    byte_t lrs_attr = p_buffer[dlis->byte_idx];
+    dlis->byte_idx++;
+
+    // parse lrs type
+    int lrs_type = parse_ushort(&(p_buffer[dlis->byte_idx]));
+    dlis->byte_idx++;
+
+   /* parse_lrs_attr(attr, &state->is_eflr, &state->lr_begin, &state->lr_end, 
         &state->lr_encrypted, &state->lr_encrypted_packet, &state->has_checksum, 
         &state->has_trailing_len, &state->has_padding);
+    */
 
-    if (state->lr_begin) {
-        if (dlis->lr_idx % 2) {
-            fprintf(stderr, "Unexpected lr_idx\n");
-            exit(-1);
-        }
-        dlis->on_logical_record_begin_f(dlis->lr_idx/2);
-        dlis->lr_idx++;
-        dlis->lrs_idx = 0;
+    // update parsing state
+    state->lrs_len = lrs_len;
+    state->lrs_byte_cnt = 0;
+    state->lrs_byte_cnt += LRS_HEADER_LEN;
+    state->lrs_attr = lrs_attr;
+    state->lrs_type = lrs_type;
+
+    if (lrs_attr_is_eflr(state)) {
+        printf("is EFLR\n");
     }
+    else {
+        printf("is NOT EFLR\n");
+    }
+    if (lrs_attr_is_first_lrs(state)) {
+        printf("is the first LRS\n");
+        dlis->on_logical_record_begin_f(lrs_len, lrs_attr, lrs_type);
+    }
+    else {
+        printf("is NOT the first LRS\n");
+    }
+
+    if (lrs_attr_is_last_lrs(state)) {
+        printf("is the last LRS\n");
+    }
+    else {
+        printf("is NOT the last LRS\n");
+    }
+
+    if (lrs_attr_is_encrypted(state)) {
+        printf("is encrypted\n");
+    }
+    else {
+        printf("is NOT encrypted\n");
+    }
+    if (lrs_attr_has_encryption_packet(state)) {
+        printf("has encryption packet\n");
+    }
+    else {
+        printf("has NOT encryption packet\n");
+    }
+    if (lrs_attr_has_checksum(state)) {
+        printf("has checksum\n");
+    }
+    else {
+        printf("has NOT checksum\n");
+    }
+    if (lrs_attr_has_trailing(state)) {
+        printf("has trailing\n");
+    }
+    else {
+        printf("has NOT trailing\n");
+    }
+    if (lrs_attr_has_padding(state)) {
+        printf("has padding\n");
+    }
+    else {
+        printf("has NOT padding\n");
+    }
+
+    printf("lrs type: %s\n", lrs_type_get_name(state));
 }
-void parse_lrs_body(dlis_t *dlis) {
+
+int lrs_attr_is_eflr(parse_state_t *state) {
+    return state->lrs_attr & 0x80;
 }
+int lrs_attr_is_first_lrs(parse_state_t *state) {
+    return !(state->lrs_attr & (0x80 >> 1));
+}
+int lrs_attr_is_last_lrs(parse_state_t *state) {
+    return !(state->lrs_attr & (0x80 >> 2));
+}
+int lrs_attr_is_encrypted(parse_state_t *state){
+    return state->lrs_attr & (0x80 >> 3);
+}
+int lrs_attr_has_encryption_packet(parse_state_t *state){
+    return state->lrs_attr & (0x80 >> 4);
+}
+int lrs_attr_has_checksum(parse_state_t *state){
+    return state->lrs_attr & (0x80 >> 5);
+}
+int lrs_attr_has_trailing(parse_state_t *state){
+    return state->lrs_attr & (0x80 >> 6);
+}
+int lrs_attr_has_padding(parse_state_t *state){
+    return state->lrs_attr & (0x80 >> 7);
+}
+
+const char *lrs_type_get_name(parse_state_t *state) {
+    const char *name = 0;
+    int type = state->lrs_type;
+    if(lrs_attr_is_eflr(state)) {
+        if (type < EFLR_RESERVED) {
+            name = EFLR_TYPE_NAMES[type];
+        }
+        else {
+            name = "Private EFLR";
+        }
+    }
+    else {
+        if (type < IFLR_RESERVED) {
+            name = IFLR_TYPE_NAMES[type];
+        }
+        else if (type == EOD ){
+            name = "EOD";
+        }
+        else {
+            name = "Private IFLR";
+        }
+    }
+    return name;
+}
+int eflr_comp_is_set(parse_state_t *state) {
+    return (state->eflr_comp_first_byte >> 5) == EFLR_COMP_SET;
+}
+int eflr_comp_is_rset(parse_state_t *state) {
+    return (state->eflr_comp_first_byte >> 5) == EFLR_COMP_RSET;
+}
+int eflr_comp_is_rdset(parse_state_t *state) {
+    return (state->eflr_comp_first_byte >> 5) == EFLR_COMP_RDSET;
+}
+int eflr_comp_is_absatr(parse_state_t *state) {
+    return (state->eflr_comp_first_byte >> 5) == EFLR_COMP_ABSATR;
+}
+int eflr_comp_is_attrib(parse_state_t *state) {
+    return (state->eflr_comp_first_byte >> 5) == EFLR_COMP_ATTRIB;
+}
+int eflr_comp_is_invatr(parse_state_t *state) {
+    return (state->eflr_comp_first_byte >> 5) == EFLR_COMP_INVATR;
+}
+int eflr_comp_is_object(parse_state_t *state) {
+    return (state->eflr_comp_first_byte >> 5) == EFLR_COMP_OBJECT;
+}
+
 void parse(dlis_t *dlis) {
     int b_idx = dlis->buffer_idx;
     byte_t *buffer = dlis->buffer[b_idx];
@@ -173,22 +352,38 @@ void parse(dlis_t *dlis) {
                 dlis->parse_state.code = EXPECTING_LRS;
                 break;
             case EXPECTING_LRS:
-                printf("parse vr success\n");
-                exit(0);
                 if (dlis->max_byte_idx - dlis->byte_idx < LRS_HEADER_LEN) 
                     goto end_loop;
                 parse_lrs_header(dlis);
-                dlis->parse_state.code = LRS_INPROG;
-                break;
-            case LRS_INPROG:
-                if (dlis->max_byte_idx - dlis->byte_idx < dlis->parse_state.lrs_len) {
-                    
+                if (lrs_attr_is_eflr(&dlis->parse_state)) {
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP;
                 }
                 else {
+                    // IFLR case
                 }
+                //dlis->parse_state.code = LRS_INPROG;
+                break;
+            case EXPECTING_EFLR_COMP:
+                parse_eflr_component(dlis);
+
                 break;
         }
+        usleep(500*1000);
     }
 end_loop:
+    usleep(500*1000);
     return;
 }
+void parse_eflr_component(dlis_t *dlis){
+    byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
+    parse_state_t *state = &(dlis->parse_state);
+
+    // parse component role
+    byte_t first_byte = p_buffer[dlis->byte_idx];
+    dlis->byte_idx++;
+
+    // update state
+    state->eflr_comp_first_byte = first_byte;
+    state->lrs_byte_cnt++;
+}
+
