@@ -122,6 +122,7 @@ void parse_vr_header(dlis_t *dlis) {
     // parse version
     dlis->byte_idx++;
     int version = parse_ushort(&(dlis->buffer[dlis->buffer_idx][dlis->byte_idx++]));
+    printf("vr_len:%d, version:%d\n", vr_len, version);
     dlis->on_visible_record_begin_f(dlis->vr_idx, vr_len, &version);
 }
 
