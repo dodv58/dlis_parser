@@ -1,7 +1,6 @@
 #ifndef __DLIS_H__
 #define __DLIS_H__
 
-typedef unsigned char byte_t;
 typedef struct dlis_s dlis_t;
 
 typedef enum lrs_iflr_type_e lrs_iflr_type_t;
@@ -60,7 +59,14 @@ enum parse_state_code_e {
     EXPECTING_SUL = 0,
     EXPECTING_VR = 1,
     EXPECTING_LRS = 2,
-    EXPECTING_EFLR_COMP = 3
+    EXPECTING_EFLR_COMP = 3,
+    EXPECTING_EFLR_COMP_SET = 4,
+    EXPECTING_EFLR_COMP_RSET = 5,
+    EXPECTING_EFLR_COMP_RDSET = 6,
+    EXPECTING_EFLR_COMP_ABSATR = 7,
+    EXPECTING_EFLR_COMP_ATTRIB = 8,
+    EXPECTING_EFLR_COMP_INVATR = 9,
+    EXPECTING_EFLR_COMP_OBJECT = 10
 };
 
 struct parse_state_s {
@@ -125,6 +131,4 @@ struct dlis_s {
 void dlis_init(dlis_t *dlis);
 void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count);
 
-int parse_ushort(byte_t *data);
-int parse_unorm(byte_t *data);
 #endif

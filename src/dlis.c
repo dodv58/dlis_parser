@@ -26,12 +26,18 @@ const char * EFLR_COMP_ROLE_NAMES[] = {
 };
 // internal functions 
 void parse(dlis_t *dlis);
-int parse_ushort(byte_t *data);
-int parse_unorm(byte_t *data);
 void parse_sul(dlis_t *dlis);
 void parse_vr_header(dlis_t *dlis);
 void parse_lrs_header(dlis_t *dlis);
+
 void parse_eflr_component(dlis_t *dlis);
+int parse_eflr_component_set(dlis_t *dlis);
+void parse_eflr_component_rset(dlis_t *dlis);
+void parse_eflr_component_rdset(dlis_t *dlis);
+void parse_eflr_component_absatr(dlis_t *dlis);
+void parse_eflr_component_attrib(dlis_t *dlis);
+void parse_eflr_component_invatr(dlis_t *dlis);
+void parse_eflr_component_object(dlis_t *dlis);
 
 int lrs_attr_is_eflr(parse_state_t *state);
 int lrs_attr_is_first_lrs(parse_state_t *state);
@@ -46,24 +52,20 @@ const char *lrs_type_get_name(parse_state_t *state);
 
 int eflr_comp_is_set(parse_state_t *state);
 int eflr_comp_is_rset(parse_state_t *state);
-int eflr_comp_is_rset(parse_state_t *state);
 int eflr_comp_is_rdset(parse_state_t *state);
 int eflr_comp_is_absatr(parse_state_t *state);
 int eflr_comp_is_attrib(parse_state_t *state);
 int eflr_comp_is_invatr(parse_state_t *state);
 int eflr_comp_is_object(parse_state_t *state);
 
-int parse_ushort(byte_t *data) {
-    return (int)*data;
-}
-int parse_unorm(byte_t *data) {
-    int high = (int)data[0];
-    int low = (int)data[1];
-    //int result = low + (high<<8);
-    return low + (high<<8);
-}
+int eflr_comp_has_label(parse_state_t *state);
+int eflr_comp_has_count(parse_state_t *state);
+int eflr_comp_has_repcode(parse_state_t *state);
+int eflr_comp_has_unit(parse_state_t *state);
+int eflr_comp_has_value(parse_state_t *state);
 
 void on_sul_default(int seq, char *version, char *structure, int max_rec_len, char *ssi) {
+    printf("--SUL--\n");
     printf("seq:%d,version:%s,structure:%s,max_rec_len:%d,ssi:%s|\n", seq, version, structure, max_rec_len, ssi);
 }
 
@@ -178,7 +180,7 @@ void parse_lrs_header(dlis_t *dlis) {
     parse_state_t *state = &(dlis->parse_state);
     byte_t * p_buffer = dlis->buffer[dlis->buffer_idx];
 
-    hexDump("-- LRS HEADER --", &(p_buffer[dlis->byte_idx]), LRS_HEADER_LEN);
+    //hexDump("-- LRS HEADER --", &(p_buffer[dlis->byte_idx]), LRS_HEADER_LEN);
     
     // parse lrs length
     int lrs_len = parse_unorm(&(p_buffer[dlis->byte_idx]));
@@ -258,6 +260,51 @@ void parse_lrs_header(dlis_t *dlis) {
 
     printf("lrs type: %s\n", lrs_type_get_name(state));
 }
+void parse_eflr_component(dlis_t *dlis){
+    byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
+    parse_state_t *state = &(dlis->parse_state);
+
+    // parse component role
+    byte_t first_byte = p_buffer[dlis->byte_idx];
+    dlis->byte_idx++;
+
+    // update state
+    state->eflr_comp_first_byte = first_byte;
+    state->lrs_byte_cnt++;
+}
+
+int parse_eflr_component_set(dlis_t *dlis) {
+    sized_str_t lstr;
+
+    byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
+    if (eflr_comp_has_label(dlis)) {
+        int len = parse_ident(p_buffer[dlis->byte_idx], dlis->max_byte_idx - dlis->byte_idx, &lstr);
+        if (len < 0) {
+            fprintf(stderr, "Unexpected sittuation\n");
+            exit(1);
+        }
+        if (len == 0) return -1;
+        // parse indent success
+        //update state
+    }
+    if (eflr_comp_has_count(dlis)) {
+       int len = parse_uvari(p_) 
+    }
+    return 0;
+}
+
+void parse_eflr_component_rset(dlis_t *dlis) {
+}
+void parse_eflr_component_rdset(dlis_t *dlis) {
+}
+void parse_eflr_component_absatr(dlis_t *dlis) {
+}
+void parse_eflr_component_attrib(dlis_t *dlis) {
+}
+void parse_eflr_component_invatr(dlis_t *dlis) {
+}
+void parse_eflr_component_object(dlis_t *dlis) {
+}
 
 int lrs_attr_is_eflr(parse_state_t *state) {
     return state->lrs_attr & 0x80;
@@ -330,6 +377,22 @@ int eflr_comp_is_object(parse_state_t *state) {
     return (state->eflr_comp_first_byte >> 5) == EFLR_COMP_OBJECT;
 }
 
+int eflr_comp_has_label(parse_state_t *state) {
+    return (state->eflr_comp_first_byte & 0x10); //0001 0000
+}
+int eflr_comp_has_count(parse_state_t *state) {
+    return (state->eflr_comp_first_byte & (0x10 >> 1));
+}
+int eflr_comp_has_repcode(parse_state_t *state) {
+    return (state->eflr_comp_first_byte & (0x10 >> 2));
+}
+int eflr_comp_has_unit(parse_state_t *state) {
+    return (state->eflr_comp_first_byte & (0x10 >> 3));
+}
+int eflr_comp_has_value(parse_state_t *state) {
+    return (state->eflr_comp_first_byte & (0x10 >> 4));
+}
+
 void parse(dlis_t *dlis) {
     int b_idx = dlis->buffer_idx;
     byte_t *buffer = dlis->buffer[b_idx];
@@ -364,26 +427,51 @@ void parse(dlis_t *dlis) {
                 //dlis->parse_state.code = LRS_INPROG;
                 break;
             case EXPECTING_EFLR_COMP:
+                if (dlis->max_byte_idx - dlis->byte_idx < 1) goto end_loop;
                 parse_eflr_component(dlis);
-
+                if (eflr_comp_is_set(dlis->state)) {
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP_SET;
+                }
+                else if (eflr_comp_is_rset(dlis->state)) {
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP_RSET;
+                }
+                else if (eflr_comp_is_rdset(dlis->state)) {
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP_RDSET;
+                } 
+                else if (eflr_comp_is_absatr(dlis->state)) {
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP_ABSATR;
+                }
+                else if (eflr_comp_is_attrib(dlis->state)) {
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP_ATTRIB;
+                }
+                else if (eflr_comp_is_invatr(dlis->state)) {
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP_INVATR;
+                }
+                else if (eflr_comp_is_object(dlis->state)) {
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP_OBJECT;
+                }
                 break;
+            case EXPECTING_EFLR_COMP_SET:
+                if( parse_eflr_component_set(dlis) < 0) goto end_loop;
+                break;
+            case EXPECTING_EFLR_COMP_RSET:
+                break;
+            case EXPECTING_EFLR_COMP_RDSET:
+                break;
+            case EXPECTING_EFLR_COMP_ABSATR:
+                break;
+            case EXPECTING_EFLR_COMP_ATTRIB:
+                break;
+            case EXPECTING_EFLR_COMP_INVATR:
+                break;
+            case EXPECTING_EFLR_COMP_OBJECT:
+                break;
+    
         }
-        usleep(500*1000);
+        //usleep(500*1000);
     }
 end_loop:
-    usleep(500*1000);
+    //usleep(500*1000);
     return;
-}
-void parse_eflr_component(dlis_t *dlis){
-    byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
-    parse_state_t *state = &(dlis->parse_state);
-
-    // parse component role
-    byte_t first_byte = p_buffer[dlis->byte_idx];
-    dlis->byte_idx++;
-
-    // update state
-    state->eflr_comp_first_byte = first_byte;
-    state->lrs_byte_cnt++;
 }
 

@@ -1,6 +1,16 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+int parse_ushort(byte_t *data) {
+    return (int)*data;
+}
+int parse_unorm(byte_t *data) {
+    int high = (int)data[0];
+    int low = (int)data[1];
+    //int result = low + (high<<8);
+    return low + (high<<8);
+}
+
 size_t trim(char *out, size_t len, const char *str)
 {
     int length = strlen(str);
@@ -105,4 +115,45 @@ int is_integer(char *str, int len) {
         len--;
     }
     return 1;
+}
+
+int parse_ident(char *buff, int buff_len, sized_str_t *output) {
+    if (output == 0 || buff == 0) {
+        return -1;
+    }
+    int len = parse_ushort(buff);
+    if ((buff_len-1) < len) return 0; // Not enough data to parse
+    output->buff = (buff + 1);
+    output->len = len;
+    return len;
+}
+
+int parse_uvari(byte_t * buff, int buff_len, int* output){
+    int len = 0;
+    if(output = 0 || buff == 0){
+        return -1;
+    }
+    if(!((*buff) & 0x80)) {
+        *output = parse_ushort(buff);
+        len = 1;
+    }
+    else if(!((*buff) & 0x40)) {
+        if(buff_len < 2) return -1;
+        *output = parse_unorm(buff) - 0x8000;
+        len = 2;
+    }
+    else {
+        if(buff_len < 4) return -1;
+        *output = parse_ulong(buff) - 0xC0000000;
+        len = 4;
+    }
+    return len;
+}
+
+int parse_ulong(byte_t * buff){
+    int tmp = 0;
+    for(int i = 0; i < 4; i++){
+        tmp = tmp | buff[i] << ((3 - i) * 8);
+    }
+    return tmp;
 }
