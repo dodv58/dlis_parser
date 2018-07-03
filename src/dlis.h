@@ -1,6 +1,8 @@
 #ifndef __DLIS_H__
 #define __DLIS_H__
 
+#include "common.h"
+
 typedef struct dlis_s dlis_t;
 
 typedef enum lrs_iflr_type_e lrs_iflr_type_t;

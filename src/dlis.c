@@ -274,21 +274,53 @@ void parse_eflr_component(dlis_t *dlis){
 }
 
 int parse_eflr_component_set(dlis_t *dlis) {
-    sized_str_t lstr;
-
+    int current_byte_idx = dlis->byte_idx;
+    int count = 0;
+    int repcode = 0;
+    int avail_bytes = 0;
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
-    if (eflr_comp_has_label(dlis)) {
-        int len = parse_ident(p_buffer[dlis->byte_idx], dlis->max_byte_idx - dlis->byte_idx, &lstr);
-        if (len < 0) {
-            fprintf(stderr, "Unexpected sittuation\n");
-            exit(1);
+    if (eflr_comp_has_label(&dlis->parse_state)) {
+        sized_str_t lstr;
+        avail_bytes = dlis->max_byte_idx - current_byte_idx;
+        if (avail_bytes < 1) return -1;
+        int label_len = parse_ident(&(p_buffer[current_byte_idx]), avail_bytes, &lstr);
+        if (label_len <= 0) {
+            return -1;
         }
-        if (len == 0) return -1;
         // parse indent success
-        //update state
+        current_byte_idx += label_len;
     }
-    if (eflr_comp_has_count(dlis)) {
-       int len = parse_uvari(p_) 
+    if (eflr_comp_has_count(&dlis->parse_state)) {
+        avail_bytes = dlis->max_byte_idx - current_byte_idx;
+        if (avail_bytes < 1) return -1;
+        int count_len = parse_uvari(&(p_buffer[current_byte_idx]), dlis->max_byte_idx - current_byte_idx, &count);
+        if(count_len <= 0) {
+            return -1;
+        } 
+        //update state
+        current_byte_idx += count_len;
+    }
+    if(eflr_comp_has_repcode(&dlis->parse_state)){
+        avail_bytes = dlis->max_byte_idx - current_byte_idx;
+        if (avail_bytes < 1) return -1;
+        repcode = parse_ushort(&p_buffer[current_byte_idx]);
+        current_byte_idx += 1; 
+    }
+    if(eflr_comp_has_unit(&dlis->parse_state)){
+        sized_str_t unit;
+        avail_bytes = dlis->max_byte_idx - current_byte_idx;
+        if (avail_bytes < 1) return -1;
+        int unit_len = parse_ident(&p_buffer[current_byte_idx], dlis->max_byte_idx - current_byte_idx, &unit);
+        if(unit_len <= 0) {
+            printf("not enough data to parse component units");
+            return -1;
+        }
+        current_byte_idx += unit_len;
+    }
+    if(eflr_comp_has_value(&dlis->parse_state)){
+        avail_bytes = dlis->max_byte_idx - current_byte_idx;
+        if (avail_bytes < 1) return -1;
+        parse_values(&(p_buffer[current_byte_idx]), avail_bytes, count, repcode);
     }
     return 0;
 }
@@ -429,25 +461,25 @@ void parse(dlis_t *dlis) {
             case EXPECTING_EFLR_COMP:
                 if (dlis->max_byte_idx - dlis->byte_idx < 1) goto end_loop;
                 parse_eflr_component(dlis);
-                if (eflr_comp_is_set(dlis->state)) {
+                if (eflr_comp_is_set(&(dlis->parse_state))) {
                     dlis->parse_state.code = EXPECTING_EFLR_COMP_SET;
                 }
-                else if (eflr_comp_is_rset(dlis->state)) {
+                else if (eflr_comp_is_rset(&(dlis->parse_state))) {
                     dlis->parse_state.code = EXPECTING_EFLR_COMP_RSET;
                 }
-                else if (eflr_comp_is_rdset(dlis->state)) {
+                else if (eflr_comp_is_rdset(&(dlis->parse_state))) {
                     dlis->parse_state.code = EXPECTING_EFLR_COMP_RDSET;
                 } 
-                else if (eflr_comp_is_absatr(dlis->state)) {
+                else if (eflr_comp_is_absatr(&(dlis->parse_state))) {
                     dlis->parse_state.code = EXPECTING_EFLR_COMP_ABSATR;
                 }
-                else if (eflr_comp_is_attrib(dlis->state)) {
+                else if (eflr_comp_is_attrib(&(dlis->parse_state))) {
                     dlis->parse_state.code = EXPECTING_EFLR_COMP_ATTRIB;
                 }
-                else if (eflr_comp_is_invatr(dlis->state)) {
+                else if (eflr_comp_is_invatr(&(dlis->parse_state))) {
                     dlis->parse_state.code = EXPECTING_EFLR_COMP_INVATR;
                 }
-                else if (eflr_comp_is_object(dlis->state)) {
+                else if (eflr_comp_is_object(&(dlis->parse_state))) {
                     dlis->parse_state.code = EXPECTING_EFLR_COMP_OBJECT;
                 }
                 break;

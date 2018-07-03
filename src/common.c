@@ -1,18 +1,74 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
+#include "common.h"
+
+int REPCODE_SIZES[] = {
+    -1, // Not used
+    2,  // DLIS_FSHORT_LEN
+    4,  // DLIS_FSINGL_LEN  4
+    8,  // DLIS_FSING1_LEN  8
+    12, // DLIS_FSING2_LEN  12
+    4,  // DLIS_ISINGL_LEN  4
+    4,  // DLIS_VSINGL_LEN  4
+    8,  // DLIS_FDOUBL_LEN  8
+    16, // DLIS_FDOUB1_LEN  16
+    24, // DLIS_FDOUB2_LEN  24
+    8,  // DLIS_CSINGL_LEN  8
+    16, // DLIS_CDOUBL_LEN  16
+    1,  // DLIS_SSHORT_LEN  1
+    2,  // DLIS_SNORM_LEN   2
+    4,  // DLIS_SLONG_LEN   4
+    1,  // DLIS_USHORT_LEN  1
+    2,  // DLIS_UNORM_LEN   2
+    4,  // DLIS_ULONG_LEN   4
+    0,  // DLIS_UVARI_LEN   0     //1, 2 or 4
+    0,  // DLIS_IDENT_LEN   0    //V
+    0,  // DLIS_ASCII_LEN   0    //V
+    8,  // DLIS_DTIME_LEN   8
+    0,  // DLIS_ORIGIN_LEN  0    //V
+    0,  // DLIS_OBNAME_LEN  0    //V
+    0,  // DLIS_OBJREF_LEN  0    //V
+    0,  // DLIS_ATTREF_LEN  0    //V
+    1,  // DLIS_STATUS_LEN  1
+    0   // DLIS_UNITS_LEN   0    //V
+};
+
 int parse_ushort(byte_t *data) {
-    return (int)*data;
+    uint8_t *pval = (uint8_t *)data;
+    return (int)*pval;
 }
 int parse_unorm(byte_t *data) {
-    int high = (int)data[0];
-    int low = (int)data[1];
-    //int result = low + (high<<8);
-    return low + (high<<8);
+    uint16_t *p_tmp = (uint16_t *)data;
+    return htons(*p_tmp);
+}
+unsigned int parse_ulong(byte_t * buff) {
+    unsigned int *p_tmp = (unsigned int *)buff;
+    return htonl(*p_tmp);
 }
 
-size_t trim(char *out, size_t len, const char *str)
-{
+
+int parse_sshort(byte_t *data) {
+    int8_t *pval = (int8_t *)data;
+    return (int) *pval;
+}
+
+int parse_snorm(byte_t *data){
+    uint16_t uval = *((uint16_t *)data);
+    uval = htons(uval);
+    int16_t val = (int16_t)uval;
+    return (int) val;
+}
+
+int parse_slong(byte_t *data){
+    uint32_t uval = *((uint32_t*)data);
+    uval = htonl(uval);
+    int32_t val = (int32_t)uval;
+    return (int) val;
+}
+
+size_t trim(char *out, size_t len, const char *str){
     int length = strlen(str);
     length = (len > length)?length: len;
     if(length == 0) return 0;
@@ -117,8 +173,8 @@ int is_integer(char *str, int len) {
     return 1;
 }
 
-int parse_ident(char *buff, int buff_len, sized_str_t *output) {
-    if (output == 0 || buff == 0) {
+int parse_ident(byte_t *buff, int buff_len, sized_str_t *output) {
+    if (output == NULL || buff == NULL) {
         return -1;
     }
     int len = parse_ushort(buff);
@@ -130,7 +186,7 @@ int parse_ident(char *buff, int buff_len, sized_str_t *output) {
 
 int parse_uvari(byte_t * buff, int buff_len, int* output){
     int len = 0;
-    if(output = 0 || buff == 0){
+    if(output == NULL || buff == NULL){
         return -1;
     }
     if(!((*buff) & 0x80)) {
@@ -150,10 +206,87 @@ int parse_uvari(byte_t * buff, int buff_len, int* output){
     return len;
 }
 
-int parse_ulong(byte_t * buff){
-    int tmp = 0;
-    for(int i = 0; i < 4; i++){
-        tmp = tmp | buff[i] << ((3 - i) * 8);
+int parse_value(byte_t* buff, int buff_len, int repcode, void *output){
+    unsigned int *uint_val;
+    int *int_val;
+    int repcode_len = 0;
+    if (repcode >= DLIS_REPCODE_MAX) {
+        fprintf(stderr, "encounter wrong repcode\n");
+        exit(-1);
     }
-    return tmp;
+    repcode_len = REPCODE_SIZES[repcode];
+    if (buff_len < repcode_len) return -1;
+    switch(repcode) {
+        case DLIS_FSHORT:
+            break;
+        case DLIS_FSINGL:
+            break;
+        case DLIS_FSING1:
+            break;
+        case DLIS_FSING2:
+            break;
+        case DLIS_ISINGL:
+            break;
+        case DLIS_VSINGL:
+            break;
+        case DLIS_FDOUBL:
+            break;
+        case DLIS_FDOUB1:
+            break;
+        case DLIS_FDOUB2:
+            break;
+        case DLIS_CSINGL:
+            break;
+        case DLIS_CDOUBL:
+            break;
+        case DLIS_SSHORT:
+            int_val = (int *)output;
+            *int_val = parse_sshort(buff);
+            break;
+        case DLIS_SNORM:
+            int_val = (int*) output;
+            *int_val = parse_snorm(buff);
+            break;
+        case DLIS_SLONG:
+            int_val = (int*) output;
+            *int_val = parse_slong(buff);
+            break;
+        case DLIS_USHORT:
+            uint_val = (unsigned int *)output;
+            *uint_val = parse_ushort(buff);
+            break;
+        case DLIS_UNORM:
+            uint_val = (unsigned int *)output;
+            *uint_val = parse_unorm(buff);
+            break;
+        case DLIS_ULONG:
+            uint_val = (unsigned int *)output;
+            *uint_val = parse_ulong(buff);
+            break;
+        case DLIS_UVARI:
+            break;
+        case DLIS_IDENT:
+            break;
+        case DLIS_ASCII:
+            break;
+        case DLIS_DTIME:
+            break;
+        case DLIS_ORIGIN:
+            break;
+        case DLIS_OBNAME:
+            break;
+        case DLIS_OBJREF:
+            break;
+        case DLIS_ATTREF:
+            break;
+        case DLIS_STATUS:
+            break;
+        case DLIS_UNITS:
+            break;
+    }
+    return repcode_len;
+}
+
+int parse_values(byte_t *buff, int buff_len, int val_cnt, int repcode) {
+    return 0;
 }
