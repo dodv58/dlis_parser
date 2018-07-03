@@ -3,11 +3,17 @@
 #include <arpa/inet.h>
 typedef unsigned char byte_t;
 
-struct sized_str_s {
+typedef struct sized_str_s {
     byte_t *buff;
     int len;
-};
-typedef struct sized_str_s sized_str_t;
+} sized_str_t;
+
+typedef struct obname_s {
+    uint32_t origin;
+    uint32_t copy_number;
+    sized_str_t name;
+} obname_t;
+
 typedef enum rep_code_e rep_code_t;
 
 enum rep_code_e {
@@ -44,16 +50,23 @@ enum rep_code_e {
 
 int parse_ushort(byte_t *data);
 int parse_unorm(byte_t *data);
+unsigned int parse_ulong(byte_t *data);
 int parse_sshort(byte_t *data);
 int parse_snorm(byte_t *data);
-int parse_snorm(byte_t *data);
+int parse_slong(byte_t *data);
 unsigned int parse_ulong(byte_t *data);
-int parse_uvari(byte_t* buff, int buff_len, int* data); //return nbytes read
+float parse_fsingl(byte_t *data);
+double parse_fdoubl(byte_t *data);
+int parse_uvari(byte_t* buff, int buff_len, uint32_t* output); //return nbytes read
 int parse_ident(byte_t *buff, int buff_len, sized_str_t *output);
+int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output);
+int parse_obname(byte_t *buff, int buff_len, obname_t* obname);
 //int parse_value(byte_t* buff, int buff_len, int rep_code, void* output);
 int parse_values(byte_t *buff, int buff_len, int val_cnt, int rep_code);
 
 size_t trim(char *out, size_t len, const char *str);
 void hexDump (char *desc, void *addr, int len);
 int is_integer(char *str, int len);
+void print_str(sized_str_t str);
+void print_obname(obname_t *obname);
 #endif

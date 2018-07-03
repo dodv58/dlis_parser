@@ -68,6 +68,34 @@ int parse_slong(byte_t *data){
     return (int) val;
 }
 
+float parse_fsingl(byte_t *data) {
+    union fsingl {
+        float float_val;
+        uint32_t long_val;
+    } u;
+    uint32_t *tmp = (uint32_t*)data;
+    u.long_val = htonl(*tmp);
+    return u.float_val;
+}
+
+double parse_fdoubl(byte_t *data){
+    union {
+        double double_val;
+        uint64_t long_val;
+    } u;
+    u.double_val = 0.0;
+
+    uint32_t *pdata = (uint32_t *)data;
+
+    uint32_t *first = pdata;
+    uint32_t *second = pdata + 1;
+    
+    uint64_t temp = htonl(*first);
+
+    u.long_val = (temp << 32) + htonl(*second);
+    return u.double_val;
+}
+
 size_t trim(char *out, size_t len, const char *str){
     int length = strlen(str);
     length = (len > length)?length: len;
@@ -178,13 +206,25 @@ int parse_ident(byte_t *buff, int buff_len, sized_str_t *output) {
         return -1;
     }
     int len = parse_ushort(buff);
-    if ((buff_len-1) < len) return 0; // Not enough data to parse
+    if ((buff_len-1) < len) return -1; // Not enough data to parse
     output->buff = (buff + 1);
     output->len = len;
-    return len;
+    return len + 1;
 }
 
-int parse_uvari(byte_t * buff, int buff_len, int* output){
+int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output){ 
+    if (output == NULL || buff == NULL) {
+        return -1;
+    }
+    uint32_t len = 0;
+    int nbytes_read = parse_uvari(buff, buff_len, &len);
+    if(nbytes_read <= 0 || buff_len -1 < len) return -1;
+    output->buff = (buff + nbytes_read);
+    output->len = len;
+    return len + nbytes_read;
+}
+
+int parse_uvari(byte_t * buff, int buff_len, uint32_t* output){
     int len = 0;
     if(output == NULL || buff == NULL){
         return -1;
@@ -209,6 +249,9 @@ int parse_uvari(byte_t * buff, int buff_len, int* output){
 int parse_value(byte_t* buff, int buff_len, int repcode, void *output){
     unsigned int *uint_val;
     int *int_val;
+    float *float_val;
+    double *double_val;
+    sized_str_t *str;
     int repcode_len = 0;
     if (repcode >= DLIS_REPCODE_MAX) {
         fprintf(stderr, "encounter wrong repcode\n");
@@ -220,6 +263,8 @@ int parse_value(byte_t* buff, int buff_len, int repcode, void *output){
         case DLIS_FSHORT:
             break;
         case DLIS_FSINGL:
+            float_val = (float *) output;
+            *float_val = parse_fsingl(buff);
             break;
         case DLIS_FSING1:
             break;
@@ -230,6 +275,8 @@ int parse_value(byte_t* buff, int buff_len, int repcode, void *output){
         case DLIS_VSINGL:
             break;
         case DLIS_FDOUBL:
+            double_val = (double*)output;
+            *double_val = parse_fdoubl(buff);
             break;
         case DLIS_FDOUB1:
             break;
@@ -264,29 +311,50 @@ int parse_value(byte_t* buff, int buff_len, int repcode, void *output){
             *uint_val = parse_ulong(buff);
             break;
         case DLIS_UVARI:
+            uint_val = (uint32_t *)output;
+            repcode_len = parse_uvari(buff, buff_len, uint_val);
             break;
         case DLIS_IDENT:
+            repcode_len = parse_ident(buff, buff_len, str);
             break;
         case DLIS_ASCII:
+            repcode_len = parse_ascii(buff, buff_len, str);
+            break;
+        case DLIS_ORIGIN:
+        case DLIS_OBNAME:
+        case DLIS_OBJREF:
+        case DLIS_ATTREF:
+        case DLIS_UNITS:
             break;
         case DLIS_DTIME:
             break;
-        case DLIS_ORIGIN:
-            break;
-        case DLIS_OBNAME:
-            break;
-        case DLIS_OBJREF:
-            break;
-        case DLIS_ATTREF:
-            break;
         case DLIS_STATUS:
-            break;
-        case DLIS_UNITS:
             break;
     }
     return repcode_len;
 }
 
 int parse_values(byte_t *buff, int buff_len, int val_cnt, int repcode) {
-    return 0;
+    return -1;
+}
+
+int parse_obname(byte_t *buff, int buff_len, obname_t* obname){
+    if(buff == NULL || obname == NULL)  return -1;
+
+    int origin_len = parse_uvari(buff, buff_len, &obname->origin);
+    if(origin_len <= 0) return -1;
+
+    obname->copy_number = parse_ushort(buff + origin_len);
+
+    int name_len = parse_ident(buff + origin_len + 1, buff_len - origin_len - 1, &obname->name);
+    if(name_len <= 0) return -1;
+    return origin_len + 1 + name_len + 1;
+}
+
+void print_str(sized_str_t str){
+    printf("%.*s\n", str.len, str.buff);
+}
+void print_obname(obname_t *obname){
+    printf("origin: %d, copy_number: %d, name: %.*s\n", 
+        obname->origin, obname->copy_number, obname->name.len, obname->name.buff);
 }
