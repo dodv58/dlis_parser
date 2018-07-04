@@ -2,11 +2,25 @@
 #define __DLIS_COMMON__
 #include <arpa/inet.h>
 typedef unsigned char byte_t;
+typedef struct value_s value_t;
+
 
 typedef struct sized_str_s {
     byte_t *buff;
     int len;
 } sized_str_t;
+
+#define MAX_VALUE_SIZE 20 // TO BE FIXED
+struct value_s {
+	int repcode;
+	union {
+		int int_val;
+		unsigned int uint_val;
+		double double_val;
+		sized_str_t lstr;
+		byte_t raw[MAX_VALUE_SIZE];
+	} u;
+};
 
 typedef struct obname_s {
     uint32_t origin;
@@ -47,21 +61,22 @@ enum rep_code_e {
     DLIS_REPCODE_MAX = 28
 };
 
+void pack(sized_str_t *lstr, value_t *v);
+void unpack(value_t *v, sized_str_t *lstr);
 
-int parse_ushort(byte_t *data);
-int parse_unorm(byte_t *data);
-unsigned int parse_ulong(byte_t *data);
-int parse_sshort(byte_t *data);
-int parse_snorm(byte_t *data);
-int parse_slong(byte_t *data);
-unsigned int parse_ulong(byte_t *data);
-float parse_fsingl(byte_t *data);
-double parse_fdoubl(byte_t *data);
-int parse_uvari(byte_t* buff, int buff_len, uint32_t* output); //return nbytes read
+int parse_ushort(byte_t *data, unsigned int *out);
+int parse_unorm(byte_t *data, unsigned int *out);
+int parse_ulong(byte_t *data, unsigned int *out);
+int parse_sshort(byte_t *data, int *out);
+int parse_snorm(byte_t *data, int *out);
+int parse_slong(byte_t *data, int *out);
+int parse_fsingl(byte_t *data, double *out);
+int parse_fdoubl(byte_t *data, double *out);
+int parse_uvari(byte_t *buff, int buff_len, unsigned int *output); //return nbytes read
 int parse_ident(byte_t *buff, int buff_len, sized_str_t *output);
 int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output);
 int parse_obname(byte_t *buff, int buff_len, obname_t* obname);
-//int parse_value(byte_t* buff, int buff_len, int rep_code, void* output);
+int parse_value(byte_t* buff, int buff_len, int rep_code, value_t* output);
 int parse_values(byte_t *buff, int buff_len, int val_cnt, int rep_code);
 
 size_t trim(char *out, size_t len, const char *str);

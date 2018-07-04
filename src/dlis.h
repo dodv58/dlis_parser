@@ -76,6 +76,7 @@ struct parse_state_s {
     
     // data related to parsing visibleRecord
     int vr_len;
+    int vr_byte_cnt;
     // ....
 
     // data related to parsing logicalRecordSegment
