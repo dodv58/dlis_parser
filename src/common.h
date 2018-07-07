@@ -2,7 +2,6 @@
 #define __DLIS_COMMON__
 #include <arpa/inet.h>
 typedef unsigned char byte_t;
-typedef struct value_s value_t;
 
 
 typedef struct sized_str_s {
@@ -10,17 +9,15 @@ typedef struct sized_str_s {
     int len;
 } sized_str_t;
 
-#define MAX_VALUE_SIZE 20 // TO BE FIXED
-struct value_s {
-	int repcode;
-	union {
-		int int_val;
-		unsigned int uint_val;
-		double double_val;
-		sized_str_t lstr;
-		byte_t raw[MAX_VALUE_SIZE];
-	} u;
-};
+typedef struct dtime_s {
+    byte_t year;
+    byte_t tz_and_month;
+    byte_t day;
+    byte_t hour;
+    byte_t minute;
+    byte_t second;
+    uint16_t ms;
+} dtime_t;
 
 typedef struct obname_s {
     uint32_t origin;
@@ -28,6 +25,24 @@ typedef struct obname_s {
     sized_str_t name;
 } obname_t;
 
+#define MAX_VALUE_SIZE 500 // TO BE FIXED
+struct value_s {
+	int repcode;
+	union {
+		int int_val;
+		unsigned int uint_val;
+		double double_val;
+		sized_str_t lstr;
+        dtime_t dtime_val;
+        obname_t obname_val;
+		byte_t raw[MAX_VALUE_SIZE];
+	} u;
+};
+typedef struct value_s value_t;
+
+#define value_invalidate(v) (v)->repcode=-1
+
+#define obname_invalidate(obname) (obname)->name.len = -1
 typedef enum rep_code_e rep_code_t;
 
 enum rep_code_e {
@@ -61,8 +76,11 @@ enum rep_code_e {
     DLIS_REPCODE_MAX = 28
 };
 
-void pack(sized_str_t *lstr, value_t *v);
-void unpack(value_t *v, sized_str_t *lstr);
+void pack_lstr(sized_str_t *lstr, value_t *v);
+void unpack_lstr(value_t *v, sized_str_t *lstr);
+void pack_obname(obname_t *obname, value_t *v);
+void unpack_obname(value_t *v, obname_t *obname);
+
 
 int parse_ushort(byte_t *data, unsigned int *out);
 int parse_unorm(byte_t *data, unsigned int *out);
@@ -76,12 +94,15 @@ int parse_uvari(byte_t *buff, int buff_len, unsigned int *output); //return nbyt
 int parse_ident(byte_t *buff, int buff_len, sized_str_t *output);
 int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output);
 int parse_obname(byte_t *buff, int buff_len, obname_t* obname);
+int parse_dtime(byte_t *buff, int buff_len, dtime_t *dtime);
 int parse_value(byte_t* buff, int buff_len, int rep_code, value_t* output);
 int parse_values(byte_t *buff, int buff_len, int val_cnt, int rep_code);
 
 size_t trim(char *out, size_t len, const char *str);
 void hexDump (char *desc, void *addr, int len);
 int is_integer(char *str, int len);
-void print_str(sized_str_t str);
+void print_str(sized_str_t *str);
 void print_obname(obname_t *obname);
+void print_dtime(dtime_t *dtime);
+void print_value(value_t *val) ;
 #endif

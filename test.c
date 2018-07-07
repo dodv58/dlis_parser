@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "src/common.h"
+/*
 int is_number(char *str, int len) {
     while (len > 0 && *str != 0 )  {
         if(!isdigit(*str)) {
@@ -109,13 +110,37 @@ void test_parse_obname() {
     print_obname(&obname);
     print_obname(&expected);
 }
+*/
 
+struct a {
+    int val1;
+    double val2;
+};
+void test_linhtinh() {
+    struct a a_val, b_val;
+    a_val.val1 = 10;
+    a_val.val2 = -1.5;
+
+    b_val = a_val;
+
+    printf("%d, %f\n", b_val.val1, b_val.val2);
+}
+
+void test_parse_dtime() {
+    byte_t buff[] = { 0b01010111, 0b00010100, 0b00010011, 0b00010101, 0b00010100, 0b00001111, 0b00000010, 0b01101100};
+    dtime_t dtime;
+    parse_dtime(buff, 8, &dtime);
+    print_dtime(&dtime);
+    printf("\n");
+}
 int main( int argc, char *argv[] ) {
-    test_parse_fsingl();
+    /*test_parse_fsingl();
     test_parse_fdoubl();
     test_parse_ident();
     test_parse_uvari();
     test_parse_ascii();
-    test_parse_obname();
+    test_parse_obname();*/
+    test_linhtinh();
+    test_parse_dtime();
 	return 0;
 }
