@@ -36,7 +36,10 @@ const char * PARSE_STATE_NAMES[] = {
     "EXPECTING_EFLR_COMP_ABSATR",
     "EXPECTING_EFLR_COMP_ATTRIB",
     "EXPECTING_EFLR_COMP_INVATR",
-    "EXPECTING_EFLR_COMP_OBJECT"
+    "EXPECTING_EFLR_COMP_OBJECT",
+    "EXPECTING_LRS_TRAILING",
+    "EXPECTING_EFLR_COMP_ATTRIB_VALUE",
+    "EXPECTING_IFLR_DATA"
 };
 // internal functions 
 void parse(dlis_t *dlis);
@@ -57,6 +60,8 @@ int parse_eflr_component_attrib(dlis_t *dlis, sized_str_t *label, long *count,
 int parse_eflr_component_attrib_value(dlis_t *dlis, value_t *val);
 int parse_eflr_component_invatr(dlis_t *dlis);
 int parse_eflr_component_object(dlis_t *dlis, obname_t * obname);
+
+int parse_iflr_data(dlis_t *dlis);
 
 int lrs_attr_is_eflr(parse_state_t *state);
 int lrs_attr_is_first_lrs(parse_state_t *state);
@@ -134,6 +139,9 @@ void on_eflr_component_attrib_value_default(int repcode, value_t *val) {
         printf("Unknown value type\n");
     }
 }
+void on_iflr_data_default(int len) {
+    printf("-->IFLR_DATA:%d\n", len);
+}
 
 void dlis_init(dlis_t *dlis) {
     printf("dlis init\n");
@@ -154,11 +162,25 @@ void dlis_init(dlis_t *dlis) {
 	dlis->on_eflr_component_object_f = &on_eflr_component_object_default;
 	dlis->on_eflr_component_attrib_f = &on_eflr_component_attrib_default;
     dlis->on_eflr_component_attrib_value_f = &on_eflr_component_attrib_value_default;
+    dlis->on_iflr_data_f = &on_iflr_data_default;
     //..........
 }
 void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
-    //printf("dlis_read: in_count:%d, max_byte_idx:%d\n", in_count, dlis->max_byte_idx);
+    //printf("dlis_read: in_count:%d, byte_idx=%d, max_byte_idx:%d, buffer_idx=%d\n", in_count, dlis->byte_idx, dlis->max_byte_idx, dlis->buffer_idx);
     int b_idx = dlis->buffer_idx;
+    if (dlis->max_byte_idx + in_count >= DLIS_BUFF_SIZE) {
+        dlis->buffer_idx = (b_idx + 1) % DLIS_BUFF_NUM;
+        printf("********** SWITCH BUFFER %d --> %d\n", b_idx, dlis->buffer_idx);
+        // copy unparsed data to new buffer and set byte_idx & max_byte_idx properly
+        byte_t *source = &dlis->buffer[b_idx][dlis->byte_idx];
+        int len = dlis->max_byte_idx - dlis->byte_idx;
+        byte_t *dest = dlis->buffer[dlis->buffer_idx];
+        memcpy(dest, source, len);
+        dlis->byte_idx = 0;
+        dlis->max_byte_idx = len;
+    }
+
+    b_idx = dlis->buffer_idx;
     byte_t *buffer = dlis->buffer[b_idx];
     memcpy(&(buffer[dlis->max_byte_idx]), in_buff, in_count);
     dlis->max_byte_idx += in_count;
@@ -217,6 +239,7 @@ int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *vr_version) {
         fprintf(stderr, 
             "Invalid visible record header: expecting 0xFF but we got 0x%x\n", 
             p_buffer[current_byte_idx]);
+        hexDump("----\n", &p_buffer[current_byte_idx - 2], 10);
         exit(-1);
     }
     current_byte_idx++;
@@ -498,6 +521,13 @@ int parse_eflr_component_object(dlis_t *dlis, obname_t* obname) {
     return obname_len;
 }
 
+int parse_iflr_data(dlis_t *dlis) {
+    byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
+    //int current_byte_idx = dlis->byte_idx;
+    // TODO
+    return dlis->max_byte_idx - dlis->byte_idx; // Just skip it
+}
+
 int lrs_attr_is_eflr(parse_state_t *state) {
     return state->lrs_attr & 0x80;
 }
@@ -614,9 +644,14 @@ void next_state(dlis_t* dlis){
 			break;
 		case EXPECTING_LRS:
 			if (lrs_attr_is_eflr(&dlis->parse_state)) {
-				dlis->parse_state.code = EXPECTING_EFLR_COMP;
+                if (dlis->parse_state.attrib_value_cnt <= 0){ 
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP;
+                }else {
+                    dlis->parse_state.code = EXPECTING_EFLR_COMP_ATTRIB_VALUE;
+                }
 			}
 			else {
+                dlis->parse_state.code = EXPECTING_IFLR_DATA;
 				// TODO: IFLR case
 			}
 			break;
@@ -678,14 +713,15 @@ void next_state(dlis_t* dlis){
 			}
 			break;
         case EXPECTING_EFLR_COMP_ATTRIB_VALUE:
-            if (dlis->parse_state.attrib_value_cnt <= 0) {
-                if (dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt > lrs_trail_len) {
+            if(dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt <= lrs_trail_len){
+                dlis->parse_state.code = EXPECTING_LRS_TRAILING;
+            } 
+            else if (dlis->parse_state.attrib_value_cnt <= 0){  
                     dlis->parse_state.code = EXPECTING_EFLR_COMP;
-                }
-                else if (dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt <= lrs_trail_len) {
-                    dlis->parse_state.code = EXPECTING_LRS_TRAILING;
-                }
             }
+            break;
+        case EXPECTING_IFLR_DATA:
+            //dlis->parse_state.code = EXPECTING_IFLR_DATA;
             break;
 	}
 }
@@ -706,7 +742,7 @@ void eflr_set_template_object_queue(dlis_t* dlis, sized_str_t *label, long count
 	//memcpy(&templt[write_idx].default_value, default_val, sizeof(value_t));
 
 	dlis->parse_state.templt_write_idx++;
-    printf("********queue template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
+    //printf("********queue template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
 }
 void eflr_set_template_object_get(dlis_t* dlis, sized_str_t *label, long *count, int *repcode, sized_str_t *unit) {
 	int read_idx = dlis->parse_state.templt_read_idx;
@@ -724,13 +760,13 @@ void eflr_set_template_object_get(dlis_t* dlis, sized_str_t *label, long *count,
 	*repcode = templt[read_idx].repcode;
 	*count = templt[read_idx].count;
 	*unit = templt[read_idx].unit;
-    printf("******** get template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
+    //printf("******** get template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
 	//``memcpy(default_val, &templt[read_idx].default_value, sizeof(value_t));
 }
 
 void eflr_set_template_object_dequeue(dlis_t* dlis) {
 	dlis->parse_state.templt_read_idx++;
-    printf("******** dequeue get template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
+    //printf("******** dequeue get template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
 }
 
 void parse(dlis_t *dlis) {
@@ -837,8 +873,9 @@ void parse(dlis_t *dlis) {
             case EXPECTING_EFLR_COMP_INVATR:
 				label.len = 0;
 				unit.len = 0;
-				count = -1;
-				repcode = -1;
+				count = 1;
+				repcode = DLIS_IDENT;
+                dlis->parse_state.attrib_value_cnt = 0;
                 len = parse_eflr_component_attrib(dlis, &label, &count, &repcode, &unit);
                 if(len < 0) goto end_loop;
 
@@ -891,6 +928,16 @@ void parse(dlis_t *dlis) {
                 // update status
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
+                next_state(dlis);
+                break;
+            case EXPECTING_IFLR_DATA:
+                len = parse_iflr_data(dlis);
+                if (len <= 0) goto end_loop;
+                // callback 
+                dlis->on_iflr_data_f(len);
+
+                // update status
+                dlis->byte_idx += len;
                 next_state(dlis);
                 break;
         }

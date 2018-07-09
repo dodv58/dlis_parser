@@ -72,6 +72,28 @@ void unpack_obname(value_t *v, obname_t *obname) {
     obname->name = v->u.obname_val.name;
 }
 
+void pack_objref(objref_t *objref, value_t *v){
+	if (MAX_VALUE_SIZE - sizeof(sized_str_t) < objref->type.len) {
+		fprintf(stderr, "objref is too large for packing\n");
+		exit(-1);
+	}
+    v->repcode = DLIS_OBJREF;
+    v->u.objref_val.type.len = objref->type.len;
+    v->u.objref_val.type.buff = locate_free(v, sizeof(sized_str_t));
+    memmove(v->u.objref_val.type.buff, objref->type.buff, objref->type.len);
+    
+	if (MAX_VALUE_SIZE - sizeof(sized_str_t) - sizeof(obname_t) - objref->type.len < objref->name.name.len) {
+		fprintf(stderr, "objref is too large for packing\n");
+		exit(-1);
+	}
+
+    v->u.objref_val.name.origin = objref->name.origin;
+    v->u.objref_val.name.copy_number = objref->name.copy_number;
+    v->u.objref_val.name.name.len = objref->name.name.len;
+    v->u.objref_val.name.name.buff = locate_free(v, sizeof(sized_str_t) + sizeof(obname_t) + objref->type.len);
+    memmove(v->u.objref_val.name.name.buff, objref->name.name.buff, objref->name.name.len);
+}
+
 int parse_ushort(byte_t *data, unsigned int *out) {
 	if(data == NULL || out == NULL) {
 		fprintf(stderr, "Unexpected NULL");
@@ -331,6 +353,7 @@ int parse_uvari(byte_t * buff, int buff_len, unsigned int* output){
 int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
     sized_str_t str;
     obname_t obname;
+    objref_t objref;
     int repcode_len = 0;
 
     if (repcode >= DLIS_REPCODE_MAX) {
@@ -411,6 +434,11 @@ int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
             repcode_len = parse_dtime(buff, buff_len, &output->u.dtime_val);
             break;
         case DLIS_OBJREF:
+            repcode_len = parse_objref(buff, buff_len, &objref);
+            if(repcode_len > 0){
+                pack_objref(&objref, output);
+            }
+            break;
         case DLIS_ATTREF:
         case DLIS_STATUS:
             break;
@@ -468,6 +496,8 @@ void print_value(value_t *val) {
             printf("value="); print_obname(&val->u.obname_val);
             break;
         case DLIS_OBJREF:
+            printf("value="); print_objref(&val->u.objref_val);
+            break;
         case DLIS_ATTREF:
         case DLIS_STATUS:
             fprintf(stderr, "haven't implemented yet %d\n", val->repcode);
@@ -503,6 +533,15 @@ int parse_obname(byte_t *buff, int buff_len, obname_t* obname){
     return origin_len + 1 + name_len;
 }
 
+int parse_objref(byte_t *buff, int buff_len, objref_t* objref){
+    if(buff == NULL || objref == NULL || buff_len <= 0)  return -1;
+    int type_len = parse_ident(buff, buff_len, &objref->type);
+    if(type_len < 0) return -1;
+    int name_len = parse_obname(buff + type_len, buff_len - type_len, &objref->name);
+    if(name_len < 0) return -1;
+    return type_len + name_len;
+}
+
 int parse_dtime(byte_t *buff, int buff_len, dtime_t *dtime) {
     if ( buff_len < sizeof(dtime_t) ) return -1;
     dtime_t *p_dtime = (dtime_t *)buff;
@@ -516,6 +555,12 @@ void print_str(sized_str_t *str){
 }
 void print_obname(obname_t *obname){
     if (obname->name.len > 0)
-        printf("(%d-%d-%.*s|)", 
+        printf("(%d-%d-%.*s)", 
             obname->origin, obname->copy_number, obname->name.len, obname->name.buff);
+}
+void print_objref(objref_t *objref){
+    printf("type:");
+    print_str(&objref->type);
+    printf("\tname:");
+    print_obname(&objref->name);
 }

@@ -1,8 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "dlis.h"
+
 int main(int argc, char *argv[]) {
-    byte_t buffer[1024];
+    byte_t buffer[4 * 1024];
     char *file_name;
     int byte_read;
 
@@ -18,11 +19,13 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
     while(!feof(f) ) {
-        byte_read = fread(buffer, 1, 100, f);
+        byte_read = fread(buffer, 1, 4096, f);
         if (byte_read < 0) {
             fprintf(stderr,"Error reading file");
             exit(-1);
         }
         dlis_read(&dlis, buffer, byte_read);
     }
+    printf("Finish reading file\n");
+    return 0;
 }

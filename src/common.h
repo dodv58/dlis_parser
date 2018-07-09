@@ -25,6 +25,11 @@ typedef struct obname_s {
     sized_str_t name;
 } obname_t;
 
+typedef struct objref_s {
+    sized_str_t type;
+    obname_t name;
+} objref_t;
+
 #define MAX_VALUE_SIZE 500 // TO BE FIXED
 struct value_s {
 	int repcode;
@@ -35,6 +40,7 @@ struct value_s {
 		sized_str_t lstr;
         dtime_t dtime_val;
         obname_t obname_val;
+        objref_t objref_val;
 		byte_t raw[MAX_VALUE_SIZE];
 	} u;
 };
@@ -80,6 +86,7 @@ void pack_lstr(sized_str_t *lstr, value_t *v);
 void unpack_lstr(value_t *v, sized_str_t *lstr);
 void pack_obname(obname_t *obname, value_t *v);
 void unpack_obname(value_t *v, obname_t *obname);
+void pack_objref(objref_t *objref, value_t *v);
 
 
 int parse_ushort(byte_t *data, unsigned int *out);
@@ -94,6 +101,7 @@ int parse_uvari(byte_t *buff, int buff_len, unsigned int *output); //return nbyt
 int parse_ident(byte_t *buff, int buff_len, sized_str_t *output);
 int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output);
 int parse_obname(byte_t *buff, int buff_len, obname_t* obname);
+int parse_objref(byte_t *buff, int buff_len, objref_t* objref);
 int parse_dtime(byte_t *buff, int buff_len, dtime_t *dtime);
 int parse_value(byte_t* buff, int buff_len, int rep_code, value_t* output);
 int parse_values(byte_t *buff, int buff_len, int val_cnt, int rep_code);
@@ -103,6 +111,7 @@ void hexDump (char *desc, void *addr, int len);
 int is_integer(char *str, int len);
 void print_str(sized_str_t *str);
 void print_obname(obname_t *obname);
+void print_objref(objref_t *objref);
 void print_dtime(dtime_t *dtime);
 void print_value(value_t *val) ;
 #endif

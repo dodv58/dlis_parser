@@ -70,7 +70,8 @@ enum parse_state_code_e {
     EXPECTING_EFLR_COMP_INVATR = 9,
     EXPECTING_EFLR_COMP_OBJECT = 10,
     EXPECTING_LRS_TRAILING = 11,
-    EXPECTING_EFLR_COMP_ATTRIB_VALUE = 12
+    EXPECTING_EFLR_COMP_ATTRIB_VALUE = 12,
+    EXPECTING_IFLR_DATA = 13
 };
 
 typedef struct eflr_template_object_s {
@@ -117,8 +118,8 @@ struct parse_state_s {
     */
 };
 
-#define DLIST_BUFF_SIZE (64*1024)
-#define DLIST_BUFF_NUM 4
+#define DLIS_BUFF_SIZE (64*1024)
+#define DLIS_BUFF_NUM 4
 struct dlis_s {
     int buffer_idx;
     int byte_idx;
@@ -130,7 +131,7 @@ struct dlis_s {
 
     parse_state_t parse_state;
 
-    byte_t buffer[DLIST_BUFF_NUM][DLIST_BUFF_SIZE];
+    byte_t buffer[DLIS_BUFF_NUM][DLIS_BUFF_SIZE];
 
     void (*on_sul_f)(int seq, char *version, char *structure, int max_rec_len, char *ssi);
     void (*on_visible_record_header_f)(int vr_idx, int vr_len, int version);
@@ -140,6 +141,8 @@ struct dlis_s {
 	void (*on_eflr_component_object_f)(obname_t obname);
     void (*on_eflr_component_attrib_f)(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value);
     void (*on_eflr_component_attrib_value_f)(int repcode, value_t *val);
+    void (*on_iflr_data_f)(int len);
+    
 
     void (*on_eflr_f)(int lrs_idx,
             int is_start, int is_end, int remain_len,
