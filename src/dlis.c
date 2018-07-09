@@ -338,6 +338,7 @@ int parse_lrs_trailing(dlis_t *dlis) {
 
     if (dlis->max_byte_idx - dlis->byte_idx < lrs_trail_len) 
         return -1;
+    //if(lrs_trail_len > 0) printf("-----------------trail len %d ---------------------\n", lrs_trail_len);
     return lrs_trail_len;
 }
 
@@ -522,10 +523,19 @@ int parse_eflr_component_object(dlis_t *dlis, obname_t* obname) {
 }
 
 int parse_iflr_data(dlis_t *dlis) {
-    byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
-    //int current_byte_idx = dlis->byte_idx;
-    // TODO
-    return dlis->max_byte_idx - dlis->byte_idx; // Just skip it
+    parse_state_t *state = &dlis->parse_state;
+    int lrs_trail_len = 0;
+    if(lrs_attr_has_checksum(state)) 
+        lrs_trail_len += 2;
+    if(lrs_attr_has_trailing(state)) 
+        lrs_trail_len += 2;
+    if(lrs_attr_has_padding(state)) 
+        lrs_trail_len ++;
+
+    if(dlis->max_byte_idx - dlis->byte_idx < state->lrs_len - state->lrs_byte_cnt - lrs_trail_len)
+        return dlis->max_byte_idx - dlis->byte_idx;
+
+    return state->lrs_len - state->lrs_byte_cnt - lrs_trail_len;
 }
 
 int lrs_attr_is_eflr(parse_state_t *state) {
@@ -721,6 +731,14 @@ void next_state(dlis_t* dlis){
             }
             break;
         case EXPECTING_IFLR_DATA:
+            if(dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt <= lrs_trail_len) {
+                dlis->parse_state.code = EXPECTING_LRS_TRAILING;
+            };
+            //if(dlis->parse_state.vr_len > dlis->parse_state.vr_byte_cnt){
+            //    dlis->parse_state.code = EXPECTING_LRS;
+            //} else {
+            //    dlis->parse_state.code = EXPECTING_VR;
+            //}
             //dlis->parse_state.code = EXPECTING_IFLR_DATA;
             break;
 	}
@@ -818,6 +836,8 @@ void parse(dlis_t *dlis) {
                 dlis->byte_idx += len;
                 dlis->parse_state.vr_len = vr_len;
                 dlis->parse_state.vr_byte_cnt = len;
+                dlis->parse_state.lrs_len = 0;
+                dlis->parse_state.lrs_byte_cnt = 0;
 				next_state(dlis);
                 break;
             case EXPECTING_LRS:
@@ -828,15 +848,17 @@ void parse(dlis_t *dlis) {
                 if (lrs_attr_is_first_lrs(&dlis->parse_state)) {
                     dlis->on_logical_record_begin_f(dlis->lr_idx, lrs_len, lrs_attr, lrs_type);
                 }
+
                 // update state
                 dlis->lrs_idx++;
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_len = lrs_len;
                 //dlis->parse_state.lrs_byte_cnt = 0;
                 dlis->parse_state.lrs_byte_cnt = len;
+                dlis->parse_state.vr_byte_cnt += len;
                 dlis->parse_state.lrs_attr = lrs_attr;
                 dlis->parse_state.lrs_type = lrs_type;
-                dlis->parse_state.vr_byte_cnt += lrs_len;
+                //dlis->parse_state.vr_byte_cnt += lrs_len;
 				next_state(dlis);
                 break;
             case EXPECTING_EFLR_COMP:
@@ -847,6 +869,7 @@ void parse(dlis_t *dlis) {
                 dlis->parse_state.eflr_comp_first_byte = eflr_comp_first_byte;
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
+                dlis->parse_state.vr_byte_cnt += len;
 				next_state(dlis);
                 break;
             case EXPECTING_EFLR_COMP_SET:
@@ -863,6 +886,7 @@ void parse(dlis_t *dlis) {
                 // update state
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
+                dlis->parse_state.vr_byte_cnt += len;
 				next_state(dlis);
                 break;
             //case EXPECTING_EFLR_COMP_ABSATR:
@@ -886,6 +910,7 @@ void parse(dlis_t *dlis) {
                 // update state
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
+                dlis->parse_state.vr_byte_cnt += len;
                 if (eflr_comp_attr_has_value(&dlis->parse_state)) {
                     dlis->parse_state.attrib_value_cnt = count;
                     dlis->parse_state.attrib_repcode = repcode;
@@ -902,6 +927,7 @@ void parse(dlis_t *dlis) {
                 // update state
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
+                dlis->parse_state.vr_byte_cnt += len;
                 dlis->parse_state.attrib_value_cnt--;
                 next_state(dlis);
                 break;
@@ -916,6 +942,7 @@ void parse(dlis_t *dlis) {
                 // update status
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
+                dlis->parse_state.vr_byte_cnt += len;
 				next_state(dlis);
                 break;
             case EXPECTING_LRS_TRAILING:
@@ -928,6 +955,7 @@ void parse(dlis_t *dlis) {
                 // update status
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
+                dlis->parse_state.vr_byte_cnt += len;
                 next_state(dlis);
                 break;
             case EXPECTING_IFLR_DATA:
@@ -938,6 +966,8 @@ void parse(dlis_t *dlis) {
 
                 // update status
                 dlis->byte_idx += len;
+                dlis->parse_state.lrs_byte_cnt += len;
+                dlis->parse_state.vr_byte_cnt += len;
                 next_state(dlis);
                 break;
         }
