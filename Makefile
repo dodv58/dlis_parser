@@ -20,4 +20,4 @@ $(S_DIR)/%.o: $(S_DIR)/%.c
 	gcc -c -o $@ $< $(CFLAGS)
 
 clean:
-	rm -fr $(APP) $(S_DIR)/*.o test.o testapp
+	rm -fr $(APP) $(S_DIR)/*.o test.o testapp *.o a.out
