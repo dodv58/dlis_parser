@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "common.h"
+#include <stdarg.h>
 
 int REPCODE_SIZES[] = {
     -1, // Not used
@@ -40,7 +41,7 @@ byte_t *locate_free(value_t *value, int size) {
 }
 void pack_lstr(sized_str_t *lstr, value_t *v) {
 	v->u.lstr.len = lstr->len;
-	if (MAX_VALUE_SIZE - sizeof(sized_str_t) < lstr->len) {
+	if (lstr->len > (int) (MAX_VALUE_SIZE - sizeof(sized_str_t))  ) {
 		fprintf(stderr, "sized string is too large for packing\n");
 		exit(-1);
 	}
@@ -57,7 +58,7 @@ void pack_obname(obname_t *obname, value_t *v) {
     v->u.obname_val.origin = obname->origin;
     v->u.obname_val.copy_number = obname->copy_number;
     
-    if (MAX_VALUE_SIZE - sizeof(obname_t) < obname->name.len) {
+    if (obname->name.len > (int)(MAX_VALUE_SIZE - sizeof(obname_t)) ) {
         fprintf(stderr, "obname is too large for packing\n");
         exit(-1);
     }
@@ -73,7 +74,7 @@ void unpack_obname(value_t *v, obname_t *obname) {
 }
 
 void pack_objref(objref_t *objref, value_t *v){
-	if (MAX_VALUE_SIZE - sizeof(sized_str_t) < objref->type.len) {
+	if (objref->type.len > (int)(MAX_VALUE_SIZE - sizeof(sized_str_t))) {
 		fprintf(stderr, "objref is too large for packing\n");
 		exit(-1);
 	}
@@ -82,7 +83,7 @@ void pack_objref(objref_t *objref, value_t *v){
     v->u.objref_val.type.buff = locate_free(v, sizeof(sized_str_t));
     memmove(v->u.objref_val.type.buff, objref->type.buff, objref->type.len);
     
-	if (MAX_VALUE_SIZE - sizeof(sized_str_t) - sizeof(obname_t) - objref->type.len < objref->name.name.len) {
+	if (objref->name.name.len > (int)(MAX_VALUE_SIZE - sizeof(sized_str_t) - sizeof(obname_t) - objref->type.len)) {
 		fprintf(stderr, "objref is too large for packing\n");
 		exit(-1);
 	}
@@ -196,7 +197,7 @@ int parse_fdoubl(byte_t *data, double *out){
 }
 
 size_t trim(char *out, size_t len, const char *str){
-    int length = strlen(str);
+    size_t length = strlen(str);
     length = (len > length)?length: len;
     if(length == 0) return 0;
 
@@ -304,9 +305,9 @@ int parse_ident(byte_t *buff, int buff_len, sized_str_t *output) {
     if (output == NULL || buff == NULL || buff_len <= 1) {
         return -1;
     }
-    uint32_t len = 0;
+    unsigned int len = 0;
 	parse_ushort(buff, &len);
-    if ((buff_len-1) < len) return -1; // Not enough data to parse
+    if ((buff_len-1) < (int)len) return -1; // Not enough data to parse
     output->buff = (buff + 1);
     output->len = len;
     return len + 1;
@@ -316,9 +317,9 @@ int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output){
     if (output == NULL || buff == NULL) {
         return -1;
     }
-    uint32_t len = 0;
+    unsigned int len = 0;
     int nbytes_read = parse_uvari(buff, buff_len, &len);
-    if(nbytes_read <= 0 || buff_len - nbytes_read < len) return -1;
+    if(nbytes_read <= 0 || buff_len - nbytes_read < (int)len) return -1;
     output->buff = (buff + nbytes_read);
     output->len = len;
     return len + nbytes_read;
@@ -446,80 +447,6 @@ int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
     return repcode_len;
 }
 
-void print_dtime(dtime_t *dtime) {
-    printf(
-            "%d-%02d-%02d %02d:%02d:%02d.%d (%d)",
-           // "%2d:%2d:%2d.%3d %2d-%2d-%4d (%d)", 
-            dtime->year + 1900, (dtime->tz_and_month & 0x0F), dtime->day,
-            dtime->hour, dtime->minute, 
-            dtime->second, htons(dtime->ms),
-            (dtime->tz_and_month >> 4)
-    );
-}
-
-void print_value(value_t *val) {
-    switch(val->repcode) {
-        case DLIS_FSHORT:
-        case DLIS_FSINGL:
-        case DLIS_FSING1:
-        case DLIS_FSING2:
-        case DLIS_ISINGL:
-        case DLIS_VSINGL:
-        case DLIS_FDOUBL:
-        case DLIS_FDOUB1:
-        case DLIS_FDOUB2:
-        case DLIS_CSINGL:
-        case DLIS_CDOUBL:
-            printf("value=%f", val->u.double_val);
-            break;
-        case DLIS_SSHORT:
-        case DLIS_SNORM:
-        case DLIS_SLONG:
-            printf("value=%d", val->u.int_val);
-            break;
-        case DLIS_USHORT:
-        case DLIS_UNORM:
-        case DLIS_ULONG:
-        case DLIS_UVARI:
-            printf("value=%d", val->u.uint_val);
-            break;
-        case DLIS_ORIGIN:
-        case DLIS_IDENT:
-        case DLIS_UNITS:
-        case DLIS_ASCII:
-            printf("value="); print_str(&val->u.lstr);
-            break;
-        case DLIS_DTIME:
-            printf("value="); print_dtime(&val->u.dtime_val);
-            break;
-        case DLIS_OBNAME:
-            printf("value="); print_obname(&val->u.obname_val);
-            break;
-        case DLIS_OBJREF:
-            printf("value="); print_objref(&val->u.objref_val);
-            break;
-        case DLIS_ATTREF:
-        case DLIS_STATUS:
-            fprintf(stderr, "haven't implemented yet %d\n", val->repcode);
-            exit(-1);
-            break;
-    }
-}
-
-int parse_values(byte_t *buff, int buff_len, int val_cnt, int repcode) {
-	printf("parse_values: %d %d %d", buff_len, val_cnt, repcode);
-	if(buff == NULL || buff_len <= 0 || val_cnt <= 0) {
-		return -1;
-	}
-	byte_t obuff[1024];
-	value_t out;
-
-	int len = parse_value(buff, buff_len, repcode, &out);
-	if (len <= 0) return -1;
-	
-    return len;
-}
-
 int parse_obname(byte_t *buff, int buff_len, obname_t* obname){
     if(buff == NULL || obname == NULL || buff_len <= 0)  return -1;
 
@@ -543,24 +470,114 @@ int parse_objref(byte_t *buff, int buff_len, objref_t* objref){
 }
 
 int parse_dtime(byte_t *buff, int buff_len, dtime_t *dtime) {
-    if ( buff_len < sizeof(dtime_t) ) return -1;
+    if ( buff_len < (int)sizeof(dtime_t) ) return -1;
     dtime_t *p_dtime = (dtime_t *)buff;
     *dtime = *p_dtime;
     return sizeof(dtime_t);
 }
 
 void print_str(sized_str_t *str){
-    if (str->len >= 0) 
-        printf("|%.*s|", str->len, str->buff);
+    int len = 0;
+    if (str->len >= 0) {
+        len = _printf(__g_cbuff, __g_clen, "|%.*s|", str->len, str->buff);
+        __g_cend(len);
+    }
 }
 void print_obname(obname_t *obname){
-    if (obname->name.len > 0)
-        printf("(%d-%d-%.*s)", 
+    int len = 0;
+    if (obname->name.len > 0) {
+        len = _printf(__g_cbuff, __g_clen, "(%d-%d-%.*s)", 
             obname->origin, obname->copy_number, obname->name.len, obname->name.buff);
+        __g_cend(len);
+    }
 }
 void print_objref(objref_t *objref){
-    printf("type:");
+    int len = _printf(__g_cbuff, __g_clen, "type:");
+    __g_cend(len);
     print_str(&objref->type);
-    printf("\tname:");
+    len = _printf(__g_cbuff, __g_clen, "\tname:");
+    __g_cend(len);
     print_obname(&objref->name);
+}
+
+void print_dtime(dtime_t *dtime) {
+    int len = _printf(__g_cbuff, __g_clen,
+            "%d-%02d-%02d %02d:%02d:%02d.%d (%d)",
+           // "%2d:%2d:%2d.%3d %2d-%2d-%4d (%d)", 
+            dtime->year + 1900, (dtime->tz_and_month & 0x0F), dtime->day,
+            dtime->hour, dtime->minute, 
+            dtime->second, htons(dtime->ms),
+            (dtime->tz_and_month >> 4)
+    );
+    __g_cend(len);
+}
+
+void print_value(value_t *val) {
+    int len;
+    switch(val->repcode) {
+        case DLIS_FSHORT:
+        case DLIS_FSINGL:
+        case DLIS_FSING1:
+        case DLIS_FSING2:
+        case DLIS_ISINGL:
+        case DLIS_VSINGL:
+        case DLIS_FDOUBL:
+        case DLIS_FDOUB1:
+        case DLIS_FDOUB2:
+        case DLIS_CSINGL:
+        case DLIS_CDOUBL:
+            len = _printf(__g_cbuff, __g_clen, "value=%f", val->u.double_val);
+            __g_cend(len);
+            break;
+        case DLIS_SSHORT:
+        case DLIS_SNORM:
+        case DLIS_SLONG:
+            len = _printf(__g_cbuff, __g_clen, "value=%d", val->u.int_val);
+            __g_cend(len);
+            break;
+        case DLIS_USHORT:
+        case DLIS_UNORM:
+        case DLIS_ULONG:
+        case DLIS_UVARI:
+            len = _printf(__g_cbuff, __g_clen, "value=%d", val->u.uint_val);
+            __g_cend(len);
+            break;
+        case DLIS_ORIGIN:
+        case DLIS_IDENT:
+        case DLIS_UNITS:
+        case DLIS_ASCII:
+            len = _printf(__g_cbuff, __g_clen, "value="); 
+            __g_cend(len);
+            print_str(&val->u.lstr);
+            break;
+        case DLIS_DTIME:
+            len = _printf(__g_cbuff, __g_clen, "value="); 
+            __g_cend(len);
+            print_dtime(&val->u.dtime_val);
+            break;
+        case DLIS_OBNAME:
+            len = _printf(__g_cbuff, __g_clen, "value="); 
+            __g_cend(len);
+            print_obname(&val->u.obname_val);
+            break;
+        case DLIS_OBJREF:
+            len = _printf(__g_cbuff, __g_clen, "value=");
+            __g_cend(len);
+            print_objref(&val->u.objref_val);
+            break;
+        case DLIS_ATTREF:
+        case DLIS_STATUS:
+            fprintf(stderr, "haven't implemented yet %d\n", val->repcode);
+            exit(-1);
+            break;
+    }
+}
+
+void (*jsprint_f)(char *buff);
+void jsprint(char *buff) {
+    if (!jsprint_f) {
+        fprintf(stderr, "print function pointer is not set\n");
+        exit(-1);
+    }
+    jsprint_f(buff);
 }

@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <strings.h>
+#include <string.h>
 #include <unistd.h>
 #include "dlis.h"
 #include "common.h"
+#include <errno.h>
+#include <stdarg.h>
 
 const char * EFLR_TYPE_NAMES[] = {
     "FHRL", "OLR", "AXIS", "CHANNL", "FRAME", "STATIC", "SCRIPT", "UPDATE", "UDI", "LNAME",
@@ -94,53 +96,97 @@ void eflr_set_template_object_queue(dlis_t* dlis, sized_str_t *label, long count
 void eflr_set_template_object_get(dlis_t* dlis, sized_str_t *label, long *count, int *repcode, sized_str_t *unit);
 void eflr_set_template_object_dequeue(dlis_t* dlis);
 
+char g_buff[1024];
+int g_idx = 0;
+
 void on_sul_default(int seq, char *version, char *structure, int max_rec_len, char *ssi) {
-    printf("--> SUL: seq=%d, version=%s, structure=%s, max_rec_len=%d, ssi=%s|\n", seq, version, structure, max_rec_len, ssi);
+    __g_cstart(0);
+    int len = _printf(__g_cbuff, __g_clen, "--> SUL: seq=%d, version=%s, structure=%s, max_rec_len=%d, ssi=%s|\n", seq, version, structure, max_rec_len, ssi);
+    __g_cend(len);
+    app_print(g_buff);
 }
 
 void on_visible_record_header_default(int vr_idx, int vr_len, int version) {
-    printf("--> VR:vr_idx=%d, vr_len=%d, version=%d\n", vr_idx, vr_len, version);
+    __g_cstart(0);
+    int len = _printf(__g_cbuff, __g_clen, "--> VR:vr_idx=%d, vr_len=%d, version=%d\n", vr_idx, vr_len, version);
+    __g_cend(len);
+    app_print(g_buff);
 }
 void on_logical_record_begin_default(int lrs_idx, int lrs_len, byte_t lrs_attr, int lrs_type) {
-    printf("--> LRS:idx=%d, len=%d, attr=%d, type=%d\n", lrs_idx, lrs_len, lrs_attr, lrs_type);
+    __g_cstart(0);
+    int len = _printf(__g_cbuff, __g_clen, "--> LRS:idx=%d, len=%d, attr=%d, type=%d\n", lrs_idx, lrs_len, lrs_attr, lrs_type);
+    __g_cend(len);
+    app_print(g_buff);
 }
 void on_logical_record_end_default(int lrs_idx) {
-    printf("--> LRS END:idx=%d\n", lrs_idx);
+    __g_cstart(0);
+    int len = _printf(__g_cbuff, __g_clen, "--> LRS END:idx=%d\n", lrs_idx);
+    __g_cend(len);
+    app_print(g_buff);
 }
 
 void on_eflr_component_set_default(sized_str_t *type, sized_str_t *name) {
-	printf("--> SET:type=%.*s, name=%.*s\n", type->len, type->buff, name->len, name->buff);
+    __g_cstart(0);
+	int len = _printf(__g_cbuff, __g_clen, "--> SET:type=%.*s, name=%.*s\n", type->len, type->buff, name->len, name->buff);
+    __g_cend(len);
+    app_print(g_buff);
 }
 void on_eflr_component_object_default(obname_t obname){
-	printf("--> OBJECT:");print_obname(&obname);printf("\n");
+    __g_cstart(0);
+	int len = _printf(__g_cbuff, __g_clen, "--> OBJECT:");
+    __g_cend(len);
+    print_obname(&obname);
+    len = _printf(__g_cbuff, __g_clen, "\n");
+    __g_cend(len);
+    app_print(g_buff);
 }
 void on_eflr_component_attrib_default(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value) {
-	printf("--> ATTRIB");print_obname(obname); printf(":");
+    __g_cstart(0);
+	int len = _printf(__g_cbuff, __g_clen, "--> ATTRIB");
+    __g_cend(len);
+    print_obname(obname); 
+    len = _printf(__g_cbuff, __g_clen, ":");
+    __g_cend(len);
 	if (label->len > 0) {
-		printf("label=%.*s, ", label->len, label->buff);
+		len = _printf(__g_cbuff, __g_clen, "label=%.*s, ", label->len, label->buff);
+        __g_cend(len);
 	}
 	if (unit->len > 0) {
-		printf("unit=%.*s, ", unit->len, unit->buff);
+		len = _printf(__g_cbuff, __g_clen, "unit=%.*s, ", unit->len, unit->buff);
+        __g_cend(len);
 	}
 	if (count > 0) {
-		printf("count=%ld, ", count);
+		len = _printf(__g_cbuff, __g_clen, "count=%ld, ", count);
+        __g_cend(len);
 	}
 	if (repcode >= 0) {
-		printf("repcode=%d, ", repcode);
+		len = _printf(__g_cbuff, __g_clen, "repcode=%d, ", repcode);
+        __g_cend(len);
 	}
-	printf("has_value:%d\n", has_value);
+	len = _printf(__g_cbuff, __g_clen, "has_value:%d\n", has_value);
+    __g_cend(len);
+    app_print(g_buff);
 }
 void on_eflr_component_attrib_value_default(int repcode, value_t *val) {
-    printf("--> ATTRIB-VALUE:");
+    __g_cstart(0);
+    int len = _printf(__g_cbuff, __g_clen, "--> ATTRIB-VALUE:");
+    __g_cend(len);
 	if (val->repcode > 0) {
-		print_value(val);printf("\n");
+		print_value(val);
+        len = _printf(__g_cbuff, __g_clen, "\n");
+        __g_cend(len);
 	}
     else {
-        printf("Unknown value type\n");
+        len = _printf(__g_cbuff, __g_clen, "Unknown value type\n");
+        __g_cend(len);
     }
+    app_print(g_buff);
 }
-void on_iflr_data_default(int len) {
-    printf("-->IFLR_DATA:%d\n", len);
+void on_iflr_data_default(int data_len) {
+    __g_cstart(0);
+    int len = _printf(__g_cbuff, __g_clen, "-->IFLR_DATA:%d\n", data_len);
+    __g_cend(len);
+    app_print(g_buff);
 }
 
 void dlis_init(dlis_t *dlis) {
@@ -170,7 +216,7 @@ void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
     int b_idx = dlis->buffer_idx;
     if (dlis->max_byte_idx + in_count >= DLIS_BUFF_SIZE) {
         dlis->buffer_idx = (b_idx + 1) % DLIS_BUFF_NUM;
-        printf("********** SWITCH BUFFER %d --> %d\n", b_idx, dlis->buffer_idx);
+        //printf("********** SWITCH BUFFER %d --> %d\n", b_idx, dlis->buffer_idx);
         // copy unparsed data to new buffer and set byte_idx & max_byte_idx properly
         byte_t *source = &dlis->buffer[b_idx][dlis->byte_idx];
         int len = dlis->max_byte_idx - dlis->byte_idx;
@@ -239,7 +285,7 @@ int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *vr_version) {
         fprintf(stderr, 
             "Invalid visible record header: expecting 0xFF but we got 0x%x\n", 
             p_buffer[current_byte_idx]);
-        hexDump("----\n", &p_buffer[current_byte_idx - 2], 10);
+        //hexDump("----\n", &p_buffer[current_byte_idx - 2], 10);
         exit(-1);
     }
     current_byte_idx++;
@@ -254,7 +300,7 @@ int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *vr_version) {
 int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t *lrs_type) {
     if (dlis->max_byte_idx - dlis->byte_idx < LRS_HEADER_LEN) 
             return -1;
-    parse_state_t *state = &(dlis->parse_state);
+    //parse_state_t *state = &(dlis->parse_state);
     int current_byte_idx = dlis->byte_idx;
     byte_t * p_buffer = dlis->buffer[dlis->buffer_idx];
 
@@ -270,60 +316,6 @@ int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t
     parse_ushort(&(p_buffer[current_byte_idx]), lrs_type);
     current_byte_idx++;
 
-    /*
-    if (lrs_attr_is_eflr(state)) {
-        printf("is EFLR\n");
-    }
-    else {
-        printf("is NOT EFLR\n");
-    }
-    if (lrs_attr_is_first_lrs(state)) {
-        printf("is the first LRS\n");
-        dlis->on_logical_record_begin_f(*lrs_len, *lrs_attr, *lrs_type);
-    }
-    else {
-        printf("is NOT the first LRS\n");
-    }
-
-    if (lrs_attr_is_last_lrs(state)) {
-        printf("is the last LRS\n");
-    }
-    else {
-        printf("is NOT the last LRS\n");
-    }
-
-    if (lrs_attr_is_encrypted(state)) {
-        printf("is encrypted\n");
-    }
-    else {
-        printf("is NOT encrypted\n");
-    }
-    if (lrs_attr_has_encryption_packet(state)) {
-        printf("has encryption packet\n");
-    }
-    else {
-        printf("has NOT encryption packet\n");
-    }
-    if (lrs_attr_has_checksum(state)) {
-        printf("has checksum\n");
-    }
-    else {
-        printf("has NOT checksum\n");
-    }
-    if (lrs_attr_has_trailing(state)) {
-        printf("has trailing\n");
-    }
-    else {
-        printf("has NOT trailing\n");
-    }
-    if (lrs_attr_has_padding(state)) {
-        printf("has padding\n");
-    }
-    else {
-        printf("has NOT padding\n");
-    }
-    */
-
     return current_byte_idx - dlis->byte_idx;
 }
 
@@ -338,14 +330,13 @@ int parse_lrs_trailing(dlis_t *dlis) {
 
     if (dlis->max_byte_idx - dlis->byte_idx < lrs_trail_len) 
         return -1;
-    //if(lrs_trail_len > 0) printf("-----------------trail len %d ---------------------\n", lrs_trail_len);
     return lrs_trail_len;
 }
 
 int parse_eflr_component(dlis_t *dlis, byte_t *eflr_comp_first_byte){
     if (dlis->max_byte_idx - dlis->byte_idx < 1) return -1;
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
-    parse_state_t *state = &(dlis->parse_state);
+    //parse_state_t *state = &(dlis->parse_state);
 
     // parse component first byte (role (3-bit) & format (5-bit))
     *eflr_comp_first_byte = p_buffer[dlis->byte_idx];
@@ -355,7 +346,6 @@ int parse_eflr_component(dlis_t *dlis, byte_t *eflr_comp_first_byte){
 
 int parse_eflr_component_set(dlis_t *dlis, sized_str_t *type, sized_str_t *name) {
     int current_byte_idx = dlis->byte_idx;
-    uint32_t count = 0;
     int avail_bytes = 0;
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
 
@@ -801,15 +791,11 @@ void parse(dlis_t *dlis) {
 	sized_str_t comp_set_name;
 	obname_t obname;
 
-    int b_idx = dlis->buffer_idx;
-
     int len;
 	sized_str_t label, unit;
 	long count;
 	int repcode;
 	value_t val;
-    
-	byte_t *buffer = dlis->buffer[b_idx];
     
 	if (dlis->byte_idx == dlis->max_byte_idx) return;
 
@@ -978,3 +964,24 @@ end_loop:
     return;
 }
 
+void do_parse(char *file_name) {
+    printf("do_parse %s\n", file_name);
+    byte_t buffer[4 * 1024];
+    int byte_read;
+    dlis_t dlis;
+    dlis_init(&dlis);
+    FILE *f = fopen(file_name, "rb");
+    if (f == NULL) {
+        fprintf(stderr, "Error open file %s\n", strerror(errno));
+        exit(-1);
+    }
+    while(!feof(f) ) {
+        byte_read = fread(buffer, 1, 4096, f);
+        if (byte_read < 0) {
+            fprintf(stderr,"Error reading file");
+            exit(-1);
+        }
+        dlis_read(&dlis, buffer, byte_read);
+    }
+    printf("Finish reading file\n");
+}

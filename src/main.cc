@@ -7,7 +7,7 @@ int main(int argc, char *argv[]) {
     char *file_name;
     int byte_read;
 
-    file_name = "sample.dlis";
+    file_name = (char *)"sample.dlis";
     if (argc >= 2) {
         file_name = argv[1];
     }

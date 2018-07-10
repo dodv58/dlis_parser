@@ -1,0 +1,16 @@
+{
+  "name": "dlis_parser",
+  "version": "1.0.0",
+  "description": "node addon for dlis-parse in C",
+  "main": "index.js",
+  "scripts": {
+    "clean": "node-gyp clean",
+    "build": "node-gyp configure build",
+    "rebuild": "node-gyp clean configure build"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "nan": "^2.10.0"
+  }
+}

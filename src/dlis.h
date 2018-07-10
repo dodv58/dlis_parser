@@ -3,15 +3,6 @@
 
 #include "common.h"
 
-typedef struct dlis_s dlis_t;
-
-typedef enum lrs_iflr_type_e lrs_iflr_type_t;
-typedef enum lrs_eflr_type_e lrs_eflr_type_t;
-
-typedef enum lrs_structure_e lrs_structure_t;
-
-typedef enum parse_state_code_e parse_state_code_t;
-typedef struct parse_state_s parse_state_t;
 enum lrs_iflr_type_e {
     FDATA = 0,
     NOFORMAT = 1,
@@ -82,6 +73,12 @@ typedef struct eflr_template_object_s {
     value_t default_value;
 } eflr_template_object_t;
 
+typedef enum lrs_iflr_type_e lrs_iflr_type_t;
+typedef enum lrs_eflr_type_e lrs_eflr_type_t;
+
+typedef enum lrs_structure_e lrs_structure_t;
+
+typedef enum parse_state_code_e parse_state_code_t;
 #define MAX_TEMPLT_OBJS 50
 
 struct parse_state_s {
@@ -117,6 +114,7 @@ struct parse_state_s {
     int has_padding;
     */
 };
+typedef struct parse_state_s parse_state_t;
 
 #define DLIS_BUFF_SIZE (64*1024)
 #define DLIS_BUFF_NUM 4
@@ -152,9 +150,11 @@ struct dlis_s {
             int is_start, int is_end, int remain_len,
             lrs_iflr_type_t type, byte_t attrib, byte_t *data, int data_len);
 };
+typedef struct dlis_s dlis_t;
 
 /* dlis file functions */
 void dlis_init(dlis_t *dlis);
 void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count);
 
+void do_parse(char *file_name);
 #endif

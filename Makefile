@@ -5,19 +5,19 @@ S_DIR:=src
 
 CFLAGS:=-g
 
-SRCS:=common.c dlis.c main.c
+SRCS:=common.cc dlis.cc main.cc
 
 all: $(APP)
 
 testapp: test.o src/common.o
-	gcc -o $@ $^
-test.o: test.c
-	gcc -c test.c $(CFLAGS)
-$(APP): $(addprefix $(S_DIR)/, $(SRCS:.c=.o))
-	gcc -o $@ $^
+	g++ -o $@ $^
+test.o: test.cc
+	g++ -c test.cc $(CFLAGS)
+$(APP): $(addprefix $(S_DIR)/, $(SRCS:.cc=.o))
+	g++ -o $@ $^
 
-$(S_DIR)/%.o: $(S_DIR)/%.c
-	gcc -c -o $@ $< $(CFLAGS)
+$(S_DIR)/%.o: $(S_DIR)/%.cc
+	g++ -c -o $@ $< $(CFLAGS)
 
 clean:
 	rm -fr $(APP) $(S_DIR)/*.o test.o testapp *.o a.out

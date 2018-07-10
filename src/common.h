@@ -3,7 +3,20 @@
 #include <arpa/inet.h>
 typedef unsigned char byte_t;
 
+extern char g_buff[1024];
+extern int g_idx;
 
+#define __g_cbuff (g_buff + g_idx)
+#define __g_clen (1024 - g_idx)
+#define __g_cstart(v) g_idx = v
+#define __g_cend(len)  g_idx+=len;g_buff[g_idx]=0
+
+//#define _printf  if(0) printf
+#define _printf snprintf
+//#define app_print(buff) printf("%s", buff)
+#define app_print(buff) jsprint(buff)
+
+extern void (*jsprint_f)(char *buff);
 typedef struct sized_str_s {
     byte_t *buff;
     int len;
@@ -49,7 +62,6 @@ typedef struct value_s value_t;
 #define value_invalidate(v) (v)->repcode=-1
 
 #define obname_invalidate(obname) (obname)->name.len = -1
-typedef enum rep_code_e rep_code_t;
 
 enum rep_code_e {
     DLIS_FSHORT = 	1,		//2
@@ -81,6 +93,13 @@ enum rep_code_e {
     DLIS_UNITS = 	27,		//V
     DLIS_REPCODE_MAX = 28
 };
+typedef enum rep_code_e rep_code_t;
+
+// For node module addon
+typedef enum node_addon_e {
+    
+} node_addon_t;
+
 
 void pack_lstr(sized_str_t *lstr, value_t *v);
 void unpack_lstr(value_t *v, sized_str_t *lstr);
@@ -104,7 +123,6 @@ int parse_obname(byte_t *buff, int buff_len, obname_t* obname);
 int parse_objref(byte_t *buff, int buff_len, objref_t* objref);
 int parse_dtime(byte_t *buff, int buff_len, dtime_t *dtime);
 int parse_value(byte_t* buff, int buff_len, int rep_code, value_t* output);
-int parse_values(byte_t *buff, int buff_len, int val_cnt, int rep_code);
 
 size_t trim(char *out, size_t len, const char *str);
 void hexDump (char *desc, void *addr, int len);
@@ -113,5 +131,7 @@ void print_str(sized_str_t *str);
 void print_obname(obname_t *obname);
 void print_objref(objref_t *objref);
 void print_dtime(dtime_t *dtime);
-void print_value(value_t *val) ;
+void print_value(value_t *val);
+
+void jsprint(char *buff);
 #endif
