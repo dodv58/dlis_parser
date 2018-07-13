@@ -1,6 +1,8 @@
 #ifndef __DLIS_COMMON__
 #define __DLIS_COMMON__
 #include <arpa/inet.h>
+#include <binn.h>
+#include <stdarg.h>
 typedef unsigned char byte_t;
 
 extern char g_buff[1024];
@@ -14,9 +16,18 @@ extern int g_idx;
 //#define _printf  if(0) printf
 #define _printf snprintf
 //#define app_print(buff) printf("%s", buff)
-#define app_print(buff) jsprint(buff)
+#define app_print(f_idx, buff) jsprint(f_idx, buff)
 
-extern void (*jsprint_f)(char *buff);
+extern int (*jsprint_f)(int f_idx, char *buff);
+extern int (*send_to_js_f)(int f_idx, char *buff, int len);
+
+typedef enum sending_data_type_e{
+    _SET = 0,
+    _OBJECT = 1,
+    _OBJ_TEMPLATE = 2,
+    _OBJ_VALUE = 3
+} sending_type_t;
+
 typedef struct sized_str_s {
     byte_t *buff;
     int len;
@@ -97,7 +108,10 @@ typedef enum rep_code_e rep_code_t;
 
 // For node module addon
 typedef enum node_addon_e {
-    
+    _eflr_data_ = 0,
+    _repcode_req_ = 1,
+    _dimension_req_ = 2,
+    NCALLBACKS = 3
 } node_addon_t;
 
 
@@ -133,5 +147,8 @@ void print_objref(objref_t *objref);
 void print_dtime(dtime_t *dtime);
 void print_value(value_t *val);
 
-void jsprint(char *buff);
+void serialize_sized_str(binn* obj, char* key, sized_str_t* str);
+
+int jsprint(int f_idx, char *buff);
+int jscall(int f_idx, char *buff, int len);
 #endif

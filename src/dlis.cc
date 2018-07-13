@@ -103,33 +103,33 @@ void on_sul_default(int seq, char *version, char *structure, int max_rec_len, ch
     __g_cstart(0);
     int len = _printf(__g_cbuff, __g_clen, "--> SUL: seq=%d, version=%s, structure=%s, max_rec_len=%d, ssi=%s|\n", seq, version, structure, max_rec_len, ssi);
     __g_cend(len);
-    app_print(g_buff);
+    app_print(_eflr_data_, g_buff);
 }
 
 void on_visible_record_header_default(int vr_idx, int vr_len, int version) {
     __g_cstart(0);
     int len = _printf(__g_cbuff, __g_clen, "--> VR:vr_idx=%d, vr_len=%d, version=%d\n", vr_idx, vr_len, version);
     __g_cend(len);
-    app_print(g_buff);
+    app_print(_eflr_data_, g_buff);
 }
 void on_logical_record_begin_default(int lrs_idx, int lrs_len, byte_t lrs_attr, int lrs_type) {
     __g_cstart(0);
     int len = _printf(__g_cbuff, __g_clen, "--> LRS:idx=%d, len=%d, attr=%d, type=%d\n", lrs_idx, lrs_len, lrs_attr, lrs_type);
     __g_cend(len);
-    app_print(g_buff);
+    app_print(_eflr_data_, g_buff);
 }
 void on_logical_record_end_default(int lrs_idx) {
     __g_cstart(0);
     int len = _printf(__g_cbuff, __g_clen, "--> LRS END:idx=%d\n", lrs_idx);
     __g_cend(len);
-    app_print(g_buff);
+    app_print(_eflr_data_, g_buff);
 }
 
 void on_eflr_component_set_default(sized_str_t *type, sized_str_t *name) {
     __g_cstart(0);
 	int len = _printf(__g_cbuff, __g_clen, "--> SET:type=%.*s, name=%.*s\n", type->len, type->buff, name->len, name->buff);
     __g_cend(len);
-    app_print(g_buff);
+    app_print(_eflr_data_, g_buff);
 }
 void on_eflr_component_object_default(obname_t obname){
     __g_cstart(0);
@@ -138,7 +138,7 @@ void on_eflr_component_object_default(obname_t obname){
     print_obname(&obname);
     len = _printf(__g_cbuff, __g_clen, "\n");
     __g_cend(len);
-    app_print(g_buff);
+    app_print(_eflr_data_, g_buff);
 }
 void on_eflr_component_attrib_default(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value) {
     __g_cstart(0);
@@ -165,7 +165,7 @@ void on_eflr_component_attrib_default(sized_str_t *label, long count, int repcod
 	}
 	len = _printf(__g_cbuff, __g_clen, "has_value:%d\n", has_value);
     __g_cend(len);
-    app_print(g_buff);
+    app_print(_eflr_data_, g_buff);
 }
 void on_eflr_component_attrib_value_default(int repcode, value_t *val) {
     __g_cstart(0);
@@ -180,13 +180,13 @@ void on_eflr_component_attrib_value_default(int repcode, value_t *val) {
         len = _printf(__g_cbuff, __g_clen, "Unknown value type\n");
         __g_cend(len);
     }
-    app_print(g_buff);
+    app_print(_eflr_data_, g_buff);
 }
 void on_iflr_data_default(int data_len) {
     __g_cstart(0);
     int len = _printf(__g_cbuff, __g_clen, "-->IFLR_DATA:%d\n", data_len);
     __g_cend(len);
-    app_print(g_buff);
+    app_print(_eflr_data_, g_buff);
 }
 
 void dlis_init(dlis_t *dlis) {
@@ -445,7 +445,7 @@ int parse_eflr_component_attrib(dlis_t *dlis, sized_str_t *label, long *count,
 		if (avail_bytes < 1) return -1;
 		int unit_len = parse_ident(&p_buffer[current_byte_idx], dlis->max_byte_idx - current_byte_idx, unit);
 		if(unit_len <= 0) {
-			printf("not enough data to parse component units");
+			//printf("not enough data to parse component units");
 			return -1;
 		}
 		// parse unit success
@@ -833,6 +833,7 @@ void parse(dlis_t *dlis) {
                 // callback
                 if (lrs_attr_is_first_lrs(&dlis->parse_state)) {
                     dlis->on_logical_record_begin_f(dlis->lr_idx, lrs_len, lrs_attr, lrs_type);
+                    dlis->lr_idx++;
                 }
 
                 // update state
@@ -890,7 +891,7 @@ void parse(dlis_t *dlis) {
                 if(len < 0) goto end_loop;
 
 				// callback
-				dlis->on_eflr_component_attrib_f(&label, count, repcode, &unit, &obname,
+				dlis->on_eflr_component_attrib_f(&label, count, repcod, &unit, &obname,
                         eflr_comp_attr_has_value(&dlis->parse_state));
 
                 // update state
@@ -964,19 +965,163 @@ end_loop:
     return;
 }
 
+binn *g_obj;
+void on_sul(int seq, char *version, char *structure, int max_rec_len, char *ssi) {
+    
+    g_obj = binn_object();
+    binn_object_set_int32(g_obj, (char *)"seq", seq);
+    binn_object_set_str(g_obj, (char *)"version", version);
+    binn_object_set_str(g_obj, (char *)"structure", structure);
+    binn_object_set_int32(g_obj, (char *)"max_rec_len", max_rec_len);
+    binn_object_set_str(g_obj, (char *)"ssi", ssi);
+
+    jscall(_eflr_data_, (char *)binn_ptr(g_obj), binn_size(g_obj));
+    binn_free(g_obj);
+}
+
+void on_visible_record_header(int vr_idx, int vr_len, int version) {
+}
+
+void on_logical_record_begin(int lrs_idx, int lrs_len, byte_t lrs_attr, int lrs_type) {
+}
+
+void on_logical_record_end(int lrs_idx) {
+}
+
+void on_eflr_component_set(sized_str_t *type, sized_str_t *name) {
+    g_obj = binn_object();
+    binn_object_set_int32(g_obj, (char*)"sending_data_type", _SET);
+    serialize_sized_str(g_obj,(char*) "type", type);
+    serialize_sized_str(g_obj,(char*) "name", name);
+    jscall(_eflr_data_, (char *)binn_ptr(g_obj), binn_size(g_obj));
+    binn_free(g_obj);
+}
+
+void on_eflr_component_object(obname_t obname){
+    g_obj = binn_object();
+    binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJECT);
+    binn_object_set_int32(g_obj, (char*)"origin", obname.origin);
+    binn_object_set_int32(g_obj, (char*)"copy_number", obname.copy_number);
+    serialize_sized_str(g_obj, (char*)"name", &obname.name);
+    jscall(_eflr_data_, (char*)binn_ptr(g_obj), binn_size(g_obj));
+    binn_free(g_obj);
+}
+
+void on_eflr_component_attrib(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value) {
+    g_obj = binn_object();
+    serialize_sized_str(g_obj, (char*)"label", label);
+    binn_object_set_int32(g_obj, (char*)"count", count);
+    binn_object_set_int32(g_obj, (char*)"repcode", repcode);
+    serialize_sized_str(g_obj, (char*)"unit", unit);
+    if(obname->name.len < 0){
+        binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJ_TEMPLATE);
+        jscall(_eflr_data_,(char*)binn_ptr(g_obj), binn_size(g_obj));
+    }
+    binn_free(g_obj);
+}
+
+void on_eflr_component_attrib_value(int repcode, value_t *val) {
+    g_obj = binn_object();
+    binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJ_VALUE);
+
+    switch(val->repcode) {
+        case DLIS_FSHORT:
+        case DLIS_FSINGL:
+        case DLIS_FSING1:
+        case DLIS_FSING2:
+        case DLIS_ISINGL:
+        case DLIS_VSINGL:
+        case DLIS_FDOUBL:
+        case DLIS_FDOUB1:
+        case DLIS_FDOUB2:
+        case DLIS_CSINGL:
+        case DLIS_CDOUBL:
+            binn_object_set_double(g_obj, (char*)"values", val->u.double_val);
+            break;
+        case DLIS_SSHORT:
+        case DLIS_SNORM:
+        case DLIS_SLONG:
+            binn_object_set_int32(g_obj, (char*)"values", val->u.int_val);
+            break;
+        case DLIS_USHORT:
+        case DLIS_UNORM:
+        case DLIS_ULONG:
+        case DLIS_UVARI:
+            binn_object_set_uint32(g_obj, (char*)"values", val->u.uint_val);
+            break;
+        case DLIS_ORIGIN:
+        case DLIS_IDENT:
+        case DLIS_UNITS:
+        case DLIS_ASCII:
+            serialize_sized_str(g_obj, (char*)"values", &val->u.lstr);
+            break;
+        case DLIS_DTIME:{
+                char dtime[100];
+                sprintf(dtime,"%d-%02d-%02d %02d:%02d:%02d.%d (%d)",
+                        val->u.dtime_val.year + 1900, (val->u.dtime_val.tz_and_month & 0x0F), val->u.dtime_val.day,
+                        val->u.dtime_val.hour, val->u.dtime_val.minute, 
+                        val->u.dtime_val.second, htons(val->u.dtime_val.ms),
+                        (val->u.dtime_val.tz_and_month >> 4));
+                binn_object_set_str(g_obj, (char*)"values", dtime);
+            }
+            break;
+        case DLIS_OBNAME:{
+                binn* obname_tmp = binn_object();
+                binn_object_set_int32(obname_tmp, (char*)"origin", val->u.obname_val.origin);
+                binn_object_set_int32(obname_tmp, (char*)"copy_number", val->u.obname_val.copy_number);
+                serialize_sized_str(obname_tmp, (char*)"name", &val->u.obname_val.name);
+                binn_object_set_object(g_obj, (char*)"values", obname_tmp);
+                binn_free(obname_tmp);
+            }
+            break;
+        case DLIS_OBJREF:{
+                binn* name_tmp = binn_object();
+                binn* tmp = binn_object();
+                serialize_sized_str(tmp, (char*)"type", &val->u.objref_val.type);
+                binn_object_set_int32(name_tmp, (char*)"origin", val->u.objref_val.name.origin);
+                binn_object_set_int32(name_tmp, (char*)"copy_number", val->u.objref_val.name.copy_number);
+                serialize_sized_str(name_tmp, (char*)"name", &val->u.objref_val.name.name);
+                binn_object_set_object(tmp, (char*)"name", name_tmp);
+                binn_object_set_object(g_obj, (char*)"values", tmp);
+                binn_free(name_tmp);
+                binn_free(tmp);
+            }
+            break;
+        case DLIS_ATTREF:
+        case DLIS_STATUS:
+            fprintf(stderr, "haven't implemented yet %d\n", val->repcode);
+            exit(-1);
+            break;
+    }    
+    jscall(_eflr_data_,(char*)binn_ptr(g_obj), binn_size(g_obj));
+    binn_free(g_obj);
+}
+
+void on_iflr_data(int data_len) {
+}
+
 void do_parse(char *file_name) {
     printf("do_parse %s\n", file_name);
     byte_t buffer[4 * 1024];
     int byte_read;
     dlis_t dlis;
     dlis_init(&dlis);
+    dlis.on_sul_f = &on_sul;
+    dlis.on_visible_record_header_f = &on_visible_record_header;
+    dlis.on_logical_record_begin_f = &on_logical_record_begin;
+    dlis.on_logical_record_end_f = &on_logical_record_end;
+	dlis.on_eflr_component_set_f = &on_eflr_component_set;
+	dlis.on_eflr_component_object_f = &on_eflr_component_object;
+	dlis.on_eflr_component_attrib_f = &on_eflr_component_attrib;
+    dlis.on_eflr_component_attrib_value_f = &on_eflr_component_attrib_value;
+    dlis.on_iflr_data_f = &on_iflr_data;
     FILE *f = fopen(file_name, "rb");
     if (f == NULL) {
         fprintf(stderr, "Error open file %s\n", strerror(errno));
         exit(-1);
     }
     while(!feof(f) ) {
-        byte_read = fread(buffer, 1, 4096, f);
+        byte_read = fread(buffer, 1, 100, f);
         if (byte_read < 0) {
             fprintf(stderr,"Error reading file");
             exit(-1);

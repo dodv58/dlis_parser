@@ -5,6 +5,9 @@
         "include_dirs": [
             "<!(node -e \"require('nan')\")",
             "../src"
+        ],
+        "libraries": [
+            "-lbinn"
         ]
     }]
 }

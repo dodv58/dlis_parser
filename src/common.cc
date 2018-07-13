@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include "common.h"
-#include <stdarg.h>
 
 int REPCODE_SIZES[] = {
     -1, // Not used
@@ -573,11 +572,25 @@ void print_value(value_t *val) {
     }
 }
 
-void (*jsprint_f)(char *buff);
-void jsprint(char *buff) {
+int (*jsprint_f)(int f_idx, char *buff);
+int (*send_to_js_f)(int f_idx, char *buff, int len);
+int jsprint(int f_idx, char *buff) {
     if (!jsprint_f) {
         fprintf(stderr, "print function pointer is not set\n");
         exit(-1);
     }
-    jsprint_f(buff);
+    return jsprint_f(f_idx, buff);
+}
+int jscall(int f_idx, char *buff, int len) {
+    if (!send_to_js_f) {
+        fprintf(stderr, "print function pointer is not set\n");
+        exit(-1);
+    }
+    return send_to_js_f(f_idx, buff, len);
+}
+void serialize_sized_str(binn* obj, char* key, sized_str_t* str){
+    char _str[str->len];
+    memmove(_str, str->buff, str->len);
+    _str[str->len] = '\0';
+    binn_object_set_str(obj, key, _str);
 }

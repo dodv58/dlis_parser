@@ -15,13 +15,27 @@ namespace dlis {
     Persistent<Function> gFn[NCALLBACKS];
     Persistent<Context> gCtx;
     
-    void pass2Js(char *buff) {
-        Local<Function> fn = Nan::New(gFn);
+    int pass2Js(int f_idx, char *buff) {
+        Local<Function> fn = Nan::New(gFn[f_idx]);
         Local<Context> ctxObj = Nan::New(gCtx);
         Local<Value> argv[] = { Nan::New(buff).ToLocalChecked() };
         Local<Value> retVal = fn->Call(ctxObj->Global(), 1, argv);
-        int intVal = retVal->Int32Value(ctxObj).ToChecked();
-        printf("### %d \n", intVal);
+        if (!retVal.IsEmpty()) {
+            int intVal = retVal->Int32Value(ctxObj).ToChecked();
+            return intVal;
+        }
+        return -1;
+    }
+    int send_to_js(int f_idx, char *buff, int len) {
+        Local<Function> fn = Nan::New(gFn[f_idx]);
+        Local<Context> ctxObj = Nan::New(gCtx);
+        Local<Value> argv[] = { Nan::CopyBuffer(buff, len).ToLocalChecked() };
+        Local<Value> retVal = fn->Call(ctxObj->Global(), 1, argv);
+        if (!retVal.IsEmpty()) {
+            int intVal = retVal->Int32Value(ctxObj).ToChecked();
+            return intVal;
+        }
+        return -1;
     }
     void parse(const FunctionCallbackInfo<Value>& args) {
         String::Utf8Value strVal(args[0]);
@@ -33,15 +47,24 @@ namespace dlis {
     void on(const FunctionCallbackInfo<Value>& args) {
         String::Utf8Value sVal(args[0]);
         std::string str(*sVal);
-        printf("set %s callback\n", str.c_str());
         Isolate *isolate = args.GetIsolate();
         Local<Function> fn = Local<Function>::Cast(args[1]);
-        gFn.Reset(fn);
+        if (str == "eflr-data") {
+            gFn[_eflr_data_].Reset(fn);
+        }
+        else if (str == "repcode-req") {
+            gFn[_repcode_req_].Reset(fn);
+        }
+        else if (str == "dimension-req") {
+            gFn[_dimension_req_].Reset(fn);
+        }
+
         Local<Context> ctxObj = isolate->GetCurrentContext();
         gCtx.Reset(ctxObj);
     }
     void init(Local<Object> exports) {
         jsprint_f = &pass2Js;
+        send_to_js_f = &send_to_js;
         NODE_SET_METHOD(exports, "parse", parse);
         NODE_SET_METHOD(exports, "on", on);
     }
