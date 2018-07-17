@@ -363,7 +363,10 @@ int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
     repcode_len = REPCODE_SIZES[repcode];
 	
 	output->repcode = repcode;
-    if (buff_len < repcode_len) return -1;
+    if (buff_len < repcode_len) {
+        //printf("--- parse_value buffer is not enough ---\n");
+        return -1;
+    }
     switch(repcode) {
         case DLIS_FSHORT:
             break;
@@ -589,8 +592,18 @@ int jscall(int f_idx, char *buff, int len) {
     return send_to_js_f(f_idx, buff, len);
 }
 void serialize_sized_str(binn* obj, char* key, sized_str_t* str){
-    char _str[str->len];
+    char _str[str->len + 1];
     memmove(_str, str->buff, str->len);
     _str[str->len] = '\0';
     binn_object_set_str(obj, key, _str);
+}
+void serialize_obname(binn* obj, char* key, obname_t* obname) {
+    binn *inner_obj = binn_object();
+    
+    binn_object_set_int32(inner_obj, (char *)"origin", obname->origin);
+    binn_object_set_int32(inner_obj, (char *)"copy_number", obname->copy_number);
+    serialize_sized_str(inner_obj, (char *)"name", &obname->name);
+
+    binn_object_set_object(obj, key, inner_obj);
+    binn_free(inner_obj);
 }

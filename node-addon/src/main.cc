@@ -29,12 +29,21 @@ namespace dlis {
     int send_to_js(int f_idx, char *buff, int len) {
         Local<Function> fn = Nan::New(gFn[f_idx]);
         Local<Context> ctxObj = Nan::New(gCtx);
-        Local<Value> argv[] = { Nan::CopyBuffer(buff, len).ToLocalChecked() };
-        Local<Value> retVal = fn->Call(ctxObj->Global(), 1, argv);
+        
+        Local<Value> retVal;
+        if (buff && len) {
+            Local<Value> argv[] = { Nan::CopyBuffer(buff, len).ToLocalChecked() };
+            retVal = fn->Call(ctxObj->Global(), 1, argv);
+        }
+        else {
+            Local<Value> argv[] = { };
+            retVal = fn->Call(ctxObj->Global(), 0, argv);
+        }
         if (!retVal.IsEmpty()) {
             int intVal = retVal->Int32Value(ctxObj).ToChecked();
             return intVal;
         }
+        
         return -1;
     }
     void parse(const FunctionCallbackInfo<Value>& args) {
@@ -52,11 +61,17 @@ namespace dlis {
         if (str == "eflr-data") {
             gFn[_eflr_data_].Reset(fn);
         }
-        else if (str == "repcode-req") {
-            gFn[_repcode_req_].Reset(fn);
+        else if (str == "iflr-header") {
+            gFn[_iflr_header_].Reset(fn);
         }
-        else if (str == "dimension-req") {
-            gFn[_dimension_req_].Reset(fn);
+        else if (str == "iflr-data") {
+            gFn[_iflr_data_].Reset(fn);
+        }
+        else if (str == "get-repcode") {
+            gFn[_get_repcode_].Reset(fn);
+        }
+        else if (str == "get-dimension") {
+            gFn[_get_dimension_].Reset(fn);
         }
 
         Local<Context> ctxObj = isolate->GetCurrentContext();

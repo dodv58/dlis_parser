@@ -62,7 +62,8 @@ enum parse_state_code_e {
     EXPECTING_EFLR_COMP_OBJECT = 10,
     EXPECTING_LRS_TRAILING = 11,
     EXPECTING_EFLR_COMP_ATTRIB_VALUE = 12,
-    EXPECTING_IFLR_DATA = 13
+    EXPECTING_IFLR_HEADER = 13,
+    EXPECTING_IFLR_DATA = 14
 };
 
 typedef struct eflr_template_object_s {
@@ -102,17 +103,15 @@ struct parse_state_s {
     int templt_read_idx;
     int attrib_value_cnt;
     int attrib_repcode;
+    sized_str_t attrib_label;
 
-    /*
-    int is_eflr;
-    int lr_begin;
-    int lr_end;
-    int lr_encrypted;
-    int lr_encrypted_packet;
-    int has_checksum;
-    int has_trailing_len;
-    int has_padding;
-    */
+    char parsing_set_type[256];
+    obname_t parsing_obj;
+
+    //data related to iflr data
+    int parsing_repcode;
+    int parsing_dimension;
+    int parsing_value_cnt;
 };
 typedef struct parse_state_s parse_state_t;
 
@@ -136,19 +135,12 @@ struct dlis_s {
     void (*on_logical_record_begin_f)(int lrs_idx, int lrs_len, byte_t lrs_attr, int lrs_type);
     void (*on_logical_record_end_f)(int lr_idx);
 	void (*on_eflr_component_set_f)(sized_str_t *type, sized_str_t *type_len);
-	void (*on_eflr_component_object_f)(obname_t obname);
+	void (*on_eflr_component_object_f)(parse_state_t* state, obname_t obname);
     void (*on_eflr_component_attrib_f)(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value);
-    void (*on_eflr_component_attrib_value_f)(int repcode, value_t *val);
-    void (*on_iflr_data_f)(int len);
+    void (*on_eflr_component_attrib_value_f)(sized_str_t* label, value_t *val);
+    void (*on_iflr_header_f)(obname_t* name, uint32_t index);
+    void (*on_iflr_data_f) ();
     
-
-    void (*on_eflr_f)(int lrs_idx,
-            int is_start, int is_end, int remain_len,
-            lrs_eflr_type_t type, byte_t attrib, byte_t *data, int data_len);
-
-    void (*on_iflr_f)(int lrs_idx,
-            int is_start, int is_end, int remain_len,
-            lrs_iflr_type_t type, byte_t attrib, byte_t *data, int data_len);
 };
 typedef struct dlis_s dlis_t;
 

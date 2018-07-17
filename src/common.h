@@ -24,8 +24,7 @@ extern int (*send_to_js_f)(int f_idx, char *buff, int len);
 typedef enum sending_data_type_e{
     _SET = 0,
     _OBJECT = 1,
-    _OBJ_TEMPLATE = 2,
-    _OBJ_VALUE = 3
+    _OBJ_VALUE = 2
 } sending_type_t;
 
 typedef struct sized_str_s {
@@ -109,9 +108,11 @@ typedef enum rep_code_e rep_code_t;
 // For node module addon
 typedef enum node_addon_e {
     _eflr_data_ = 0,
-    _repcode_req_ = 1,
-    _dimension_req_ = 2,
-    NCALLBACKS = 3
+    _iflr_header_ = 1,
+    _iflr_data_ = 2,
+    _get_repcode_ = 3,
+    _get_dimension_ = 4,
+    NCALLBACKS = 5
 } node_addon_t;
 
 
@@ -148,6 +149,7 @@ void print_dtime(dtime_t *dtime);
 void print_value(value_t *val);
 
 void serialize_sized_str(binn* obj, char* key, sized_str_t* str);
+void serialize_obname(binn* obj, char* key, obname_t* obname);
 
 int jsprint(int f_idx, char *buff);
 int jscall(int f_idx, char *buff, int len);
