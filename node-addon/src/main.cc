@@ -27,9 +27,9 @@ namespace dlis {
         return -1;
     }
     int send_to_js(int f_idx, char *buff, int len) {
+        /* 
         Local<Function> fn = Nan::New(gFn[f_idx]);
         Local<Context> ctxObj = Nan::New(gCtx);
-        
         Local<Value> retVal;
         if (buff && len) {
             Local<Value> argv[] = { Nan::CopyBuffer(buff, len).ToLocalChecked() };
@@ -43,7 +43,7 @@ namespace dlis {
             int intVal = retVal->Int32Value(ctxObj).ToChecked();
             return intVal;
         }
-        
+        */
         return -1;
     }
     void parse(const FunctionCallbackInfo<Value>& args) {

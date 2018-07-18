@@ -607,3 +607,64 @@ void serialize_obname(binn* obj, char* key, obname_t* obname) {
     binn_object_set_object(obj, key, inner_obj);
     binn_free(inner_obj);
 }
+
+void serialize_value(binn* g_obj, char* key, value_t* val){
+    switch(val->repcode) {
+        case DLIS_FSHORT:
+        case DLIS_FSINGL:
+        case DLIS_FSING1:
+        case DLIS_FSING2:
+        case DLIS_ISINGL:
+        case DLIS_VSINGL:
+        case DLIS_FDOUBL:
+        case DLIS_FDOUB1:
+        case DLIS_FDOUB2:
+        case DLIS_CSINGL:
+        case DLIS_CDOUBL:
+            binn_object_set_double(g_obj, key, val->u.double_val);
+            break;
+        case DLIS_SSHORT:
+        case DLIS_SNORM:
+        case DLIS_SLONG:
+            binn_object_set_int32(g_obj, key, val->u.int_val);
+            break;
+        case DLIS_USHORT:
+        case DLIS_UNORM:
+        case DLIS_ULONG:
+        case DLIS_UVARI:
+            binn_object_set_uint32(g_obj, key, val->u.uint_val);
+            break;
+        case DLIS_ORIGIN:
+        case DLIS_IDENT:
+        case DLIS_UNITS:
+        case DLIS_ASCII:
+            serialize_sized_str(g_obj, key, &val->u.lstr);
+            break;
+        case DLIS_DTIME:{
+                char dtime[100];
+                sprintf(dtime,"%d-%02d-%02d %02d:%02d:%02d.%d (%d)",
+                        val->u.dtime_val.year + 1900, (val->u.dtime_val.tz_and_month & 0x0F), val->u.dtime_val.day,
+                        val->u.dtime_val.hour, val->u.dtime_val.minute, 
+                        val->u.dtime_val.second, htons(val->u.dtime_val.ms),
+                        (val->u.dtime_val.tz_and_month >> 4));
+                binn_object_set_str(g_obj, key, dtime);
+            }
+            break;
+        case DLIS_OBNAME:
+            serialize_obname(g_obj, key, &val->u.obname_val);
+            break;
+        case DLIS_OBJREF:{
+                binn* tmp = binn_object();
+                serialize_sized_str(tmp, (char*)"type", &val->u.objref_val.type);
+                serialize_obname(tmp, (char *)"name", &val->u.objref_val.name);
+                binn_object_set_object(g_obj, key, tmp);
+                binn_free(tmp);
+            }
+            break;
+        case DLIS_ATTREF:
+        case DLIS_STATUS:
+            fprintf(stderr, "haven't implemented yet %d\n", val->repcode);
+            exit(-1);
+            break;
+    }    
+}

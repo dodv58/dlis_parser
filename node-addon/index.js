@@ -22,6 +22,7 @@ function obname2Str(obj) {
     return obj.origin + "-" + obj.copy_number + "-" + obj.name;
 }
 dlis.on("eflr-data", function(buffer) {
+    console.log("EFLR-data");
     var myObj = binn.decode(buffer);
     switch(myObj.sending_data_type) {
     case sendingDataType._SET:
@@ -63,7 +64,8 @@ dlis.on("eflr-data", function(buffer) {
 
 let parsingIndex = 0;
 let parsingData = [];
-
+let parsingValueCnt = 0;
+let fdata = [];
 dlis.on("get-repcode", function(){
     //console.log("--->get_repcode: " + parsingData[parsingIndex].repcode + " dimension: " + parsingData[parsingIndex].dimension)
     if (parsingData.length <= parsingIndex) return -1;
@@ -80,20 +82,29 @@ dlis.on("iflr-header", function(buffer) {
     var frameObj = dlisFrames[frameName];
     var channelList = frameObj["CHANNELS"];
     parsingData.length = 0;
+    fdata.length = 0;
     for (var chan of channelList) {
         let channelObj = channels[chan];
         let repcode = channelObj["REPRESENTATION-CODE"][0];
         let dimension = channelObj["DIMENSION"][0];
         parsingData.push({repcode, dimension});
+        fdata.push({name:chan, data:[]});
     }
     parsingIndex = 0;
     console.log("___frame name: "+ obname2Str(myObj.frame_name) + " index: "+ myObj.fdata_index + " number of channels: " + parsingData.length);
     return 24;
 });
 
-dlis.on("iflr-data", function(buffer) {
-    parsingIndex++;
-    return 25
+dlis.on("iflr-data", function(/*buffer*/) {
+    //var value = binn.decode(buffer);
+    parsingValueCnt++;
+    //fdata[parsingIndex].data.push(value.value);
+    if(parsingValueCnt >= parsingData[parsingIndex].dimension){
+        //console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
+        parsingIndex++;
+        parsingValueCnt = 0;
+    }
+    return 25;
 });
 
 var temp = dlis.parse("../AP_1225in_MREX_E_MAIN.dlis");

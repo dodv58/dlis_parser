@@ -569,6 +569,7 @@ int parse_iflr_data(dlis_t* dlis) {
         //printf("---FDATA:--- repcode %d dimension %d cnt %d\n", state->parsing_repcode, state->parsing_dimension, state->parsing_value_cnt);
 
         value_t val;
+        binn* tmp = NULL;
         for(int i = state->parsing_value_cnt; i < state->parsing_dimension; i++){
             value_invalidate(&val);
             len = parse_value(&p_buffer[current_byte_idx], dlis->max_byte_idx - current_byte_idx, state->parsing_repcode, &val);
@@ -576,6 +577,12 @@ int parse_iflr_data(dlis_t* dlis) {
             if(len <= 0) {
                 break;
             }
+            /*tmp = binn_object();
+            serialize_value(tmp, (char*)"value", &val);
+            dlis->on_iflr_data_f(tmp);
+            binn_free(tmp);*/
+            dlis->on_iflr_data_f(tmp);
+
             state->parsing_value_cnt++;
             current_byte_idx += len;
         }
@@ -1032,6 +1039,9 @@ void parse(dlis_t *dlis) {
                 next_state(dlis);
                 break;
             case EXPECTING_IFLR_HEADER:
+                while( 1 ) {
+                    usleep(1000*1000);
+                }
                 len = parse_iflr_header(dlis, &frame_name, &frame_index);
                 if (len <= 0) goto end_loop;
                 // callback 
@@ -1053,7 +1063,7 @@ void parse(dlis_t *dlis) {
                 dlis->parse_state.vr_byte_cnt += len;
                 //callback
                 if(dlis->parse_state.parsing_value_cnt >= dlis->parse_state.parsing_dimension) {
-                    dlis->on_iflr_data_f();
+                    //dlis->on_iflr_data_f();
                 }
                 else {
                     goto end_loop;
@@ -1086,7 +1096,7 @@ void on_visible_record_header(int vr_idx, int vr_len, int version) {
 }
 
 void on_logical_record_begin(int lrs_idx, int lrs_len, byte_t lrs_attr, int lrs_type) {
-    printf("==== LRS: %d,%d,%d, 0x%x\n", lrs_idx, lrs_len, lrs_type, lrs_attr);
+    //printf("==== LRS: %d,%d,%d, 0x%x\n", lrs_idx, lrs_len, lrs_type, lrs_attr);
 }
 
 void on_logical_record_end(int lrs_idx) {
@@ -1138,88 +1148,7 @@ void on_eflr_component_attrib_value( sized_str_t* label, value_t *val) {
     g_obj = binn_object();
     binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJ_VALUE);
     serialize_sized_str(g_obj, (char*)"label", label);
-
-    switch(val->repcode) {
-        case DLIS_FSHORT:
-        case DLIS_FSINGL:
-        case DLIS_FSING1:
-        case DLIS_FSING2:
-        case DLIS_ISINGL:
-        case DLIS_VSINGL:
-        case DLIS_FDOUBL:
-        case DLIS_FDOUB1:
-        case DLIS_FDOUB2:
-        case DLIS_CSINGL:
-        case DLIS_CDOUBL:
-            binn_object_set_double(g_obj, (char*)"value", val->u.double_val);
-            break;
-        case DLIS_SSHORT:
-        case DLIS_SNORM:
-        case DLIS_SLONG:
-            binn_object_set_int32(g_obj, (char*)"value", val->u.int_val);
-            break;
-        case DLIS_USHORT:
-        case DLIS_UNORM:
-        case DLIS_ULONG:
-        case DLIS_UVARI:
-            binn_object_set_uint32(g_obj, (char*)"value", val->u.uint_val);
-            break;
-        case DLIS_ORIGIN:
-        case DLIS_IDENT:
-        case DLIS_UNITS:
-        case DLIS_ASCII:
-            serialize_sized_str(g_obj, (char*)"value", &val->u.lstr);
-            break;
-        case DLIS_DTIME:{
-                char dtime[100];
-                sprintf(dtime,"%d-%02d-%02d %02d:%02d:%02d.%d (%d)",
-                        val->u.dtime_val.year + 1900, (val->u.dtime_val.tz_and_month & 0x0F), val->u.dtime_val.day,
-                        val->u.dtime_val.hour, val->u.dtime_val.minute, 
-                        val->u.dtime_val.second, htons(val->u.dtime_val.ms),
-                        (val->u.dtime_val.tz_and_month >> 4));
-                binn_object_set_str(g_obj, (char*)"value", dtime);
-            }
-            break;
-        case DLIS_OBNAME:
-            serialize_obname(g_obj, (char *)"value", &val->u.obname_val);
-            /*
-            {
-                binn* obname_tmp = binn_object();
-                binn_object_set_int32(obname_tmp, (char*)"origin", val->u.obname_val.origin);
-                binn_object_set_int32(obname_tmp, (char*)"copy_number", val->u.obname_val.copy_number);
-                serialize_sized_str(obname_tmp, (char*)"name", &val->u.obname_val.name);
-                binn_object_set_object(g_obj, (char*)"value", obname_tmp);
-                binn_free(obname_tmp);
-            }
-            */
-            break;
-        case DLIS_OBJREF:{
-                binn* tmp = binn_object();
-                serialize_sized_str(tmp, (char*)"type", &val->u.objref_val.type);
-                serialize_obname(tmp, (char *)"name", &val->u.objref_val.name);
-                binn_object_set_object(g_obj, (char*)"value", tmp);
-                binn_free(tmp);
-
-                /*
-                binn* name_tmp = binn_object();
-                binn* tmp = binn_object();
-                serialize_sized_str(tmp, (char*)"type", &val->u.objref_val.type);
-                binn_object_set_int32(name_tmp, (char*)"origin", val->u.objref_val.name.origin);
-                binn_object_set_int32(name_tmp, (char*)"copy_number", val->u.objref_val.name.copy_number);
-                serialize_sized_str(name_tmp, (char*)"name", &val->u.objref_val.name.name);
-                binn_object_set_object(tmp, (char*)"name", name_tmp);
-                binn_object_set_object(g_obj, (char*)"value", tmp);
-                binn_free(name_tmp);
-                binn_free(tmp);
-                */
-            }
-            break;
-        case DLIS_ATTREF:
-        case DLIS_STATUS:
-            fprintf(stderr, "haven't implemented yet %d\n", val->repcode);
-            exit(-1);
-            break;
-    }    
+    serialize_value(g_obj, (char*)"value", val);
     jscall(_eflr_data_,(char*)binn_ptr(g_obj), binn_size(g_obj));
     binn_free(g_obj);
 }
@@ -1231,10 +1160,9 @@ void on_iflr_header(obname_t* frame_name, uint32_t index) {
     jscall(_iflr_header_, (char *)binn_ptr(g_obj), binn_size(g_obj));
     binn_free(g_obj);
 }
-void on_iflr_data(){
-    g_obj = binn_object();
-    jscall(_iflr_data_, (char *)binn_ptr(g_obj), binn_size(g_obj));
-    binn_free(g_obj);
+void on_iflr_data(binn* data){
+    //jscall(_iflr_data_, (char *)binn_ptr(data), binn_size(data));
+    jscall(_iflr_data_, NULL, 0);
 }
 
 void dump(dlis_t *dlis) {

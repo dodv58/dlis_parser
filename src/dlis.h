@@ -139,7 +139,7 @@ struct dlis_s {
     void (*on_eflr_component_attrib_f)(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value);
     void (*on_eflr_component_attrib_value_f)(sized_str_t* label, value_t *val);
     void (*on_iflr_header_f)(obname_t* name, uint32_t index);
-    void (*on_iflr_data_f) ();
+    void (*on_iflr_data_f) (binn* data);
     
 };
 typedef struct dlis_s dlis_t;
