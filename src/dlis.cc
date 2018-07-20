@@ -56,6 +56,7 @@ int parse_sul(dlis_t *dlis);
 int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *version);
 int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t *lrs_type);
 int parse_lrs_trailing(dlis_t *dlis);
+void get_repcode_dimension(int input, int *repcode, int *dimension);
 
 void next_state(dlis_t* dlis);
 
@@ -595,12 +596,7 @@ int parse_iflr_data(dlis_t* dlis) {
                 return 0;
             }
             else {
-                state->parsing_repcode = retval;
-
-                g_obj = binn_object();
-                binn_object_set_int32(g_obj, (char *)"functionIdx", _get_dimension_);
-                state->parsing_dimension = jscall((char*) binn_ptr(g_obj), binn_size(g_obj));
-                __binn_free(g_obj);
+                get_repcode_dimension(retval, &state->parsing_repcode, &state->parsing_dimension);
                 state->parsing_value_cnt = 0;
             }
         }
@@ -755,7 +751,6 @@ void next_state(dlis_t* dlis){
                 }
 			}
 			else {
-                printf("IFLR_HEADER\n");
                 dlis->parse_state.code = EXPECTING_IFLR_HEADER;
 			}
 			break;
@@ -1262,13 +1257,25 @@ void *do_parse(void *file_name_void) {
     return NULL;
 }
 int jscall(char *buff, int len) {
-    //printf("jscall");
-    char buffer[20];
+    char buffer[200];
     zmq_send(sender, buff, len, 0);
     int nbytes = zmq_recv(sender, buffer, sizeof(buffer), 0);
     buffer[nbytes] = '\0';
-    //printf("jscall return value: %s\n", buffer);
-    return atoi(buffer);
+    int repcode;
+    int dimension;
+    repcode = binn_object_int32(buffer, (char *) "repcode");
+    dimension = binn_object_int32(buffer, (char *) "dimension");
+    if (repcode < 0 || dimension < 0) return -1;
+
+    return repcode << 16 | dimension;
+}
+void get_repcode_dimension(int input, int *repcode, int *dimension) {
+    if (input == -1) {
+        fprintf(stderr, "please check input before extract repcode & dimension\n");
+        exit(-1); // sanity check
+    }
+    *repcode = input >> 16;
+    *dimension = input & 0x0000FFFF; 
 }
 /*
 void initSocket(){

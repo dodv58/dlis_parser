@@ -111,8 +111,7 @@ typedef enum node_addon_e {
     _iflr_header_ = 1,
     _iflr_data_ = 2,
     _get_repcode_ = 3,
-    _get_dimension_ = 4,
-    NCALLBACKS = 5
+    NCALLBACKS = 4
 } node_addon_t;
 
 

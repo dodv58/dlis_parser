@@ -17,7 +17,6 @@ const functionIdx = {
     IFLR_HEADER: 1,
     IFLR_DATA: 2,
     GET_REPCODE: 3,
-    GET_DIMENSION: 4
 }
 
 let setType;
@@ -88,12 +87,16 @@ function eflr_data(myObj) {
     return 23;
 }
 function get_repcode(){
+    /*
     if (parsingData.length <= parsingIndex) return -1;
-    //console.log("return repcode: " + parsingData[parsingIndex].repcode);
     return parsingData[parsingIndex].repcode;
-}
-function get_dimension(){
-    return parsingData[parsingIndex].dimension;
+    */
+    if(parsingData.length <= parsingIndex) {
+        let obj = {repcode: -1, dimension: -1};
+        return binn.encode(obj);
+    }else {
+        return binn.encode(parsingData[parsingIndex]);
+    }
 }
 function iflr_header(myObj) {
     //console.log("iflr " + cnt);cnt++;
@@ -110,7 +113,7 @@ function iflr_header(myObj) {
         let repcode = channelObj["REPRESENTATION-CODE"][0];
         let dimension = channelObj["DIMENSION"][0];
         parsingData.push({repcode, dimension});
-        fdata.push({name:chan, data:[]});
+        fdata.push({name:channelName, data:[]});
     }
     parsingIndex = 0;
     console.log("___frame name: "+ obname2Str(myObj.frame_name) + " index: "+ myObj.fdata_index + " number of channels: " + parsingData.length);
@@ -120,7 +123,7 @@ function iflr_data(myObj) {
     parsingValueCnt++;
     fdata[parsingIndex].data.push(myObj.value);
     if(parsingValueCnt >= parsingData[parsingIndex].dimension){
-        //console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
+        console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
         parsingIndex++;
         parsingValueCnt = 0;
     }
@@ -141,16 +144,13 @@ socket.on("message", function(buffer) {
     //console.log(myObj);
     //console.log(cnt + " --- " + myObj.functionIdx);
     //cnt++;
-    let retval = 0;
+    let retval;
     switch(myObj.functionIdx){
         case functionIdx.EFLR_DATA:
             retval = eflr_data(myObj);
             break;
         case functionIdx.GET_REPCODE:
             retval = get_repcode();
-            break;
-        case functionIdx.GET_DIMENSION:
-            retval = get_dimension();
             break;
         case functionIdx.IFLR_HEADER:
             retval = iflr_header(myObj);
@@ -159,7 +159,7 @@ socket.on("message", function(buffer) {
             retval = iflr_data(myObj);
             break;
     }
-    socket.send("" + retval);
+    socket.send(retval);
 });
 
 socket.bindSync('ipc:///tmp/dlis-socket');

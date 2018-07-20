@@ -357,7 +357,7 @@ int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
     int repcode_len = 0;
 
     if (repcode >= DLIS_REPCODE_MAX) {
-        fprintf(stderr, "encounter wrong repcode\n");
+        fprintf(stderr, "encounter wrong repcode: %d\n", repcode);
         exit(-1);
     }
     repcode_len = REPCODE_SIZES[repcode];
