@@ -19,9 +19,7 @@ const functionIdx = {
     GET_REPCODE: 3,
     GET_DIMENSION: 4
 }
-let currentObj = {};
 
-let templateProps = [];
 let setType;
 let channels = {};
 let dlisFrames = {};
@@ -67,9 +65,9 @@ var cnt = 0;
 
 function eflr_data(myObj) {
     //console.log(cnt++);
+    //console.log(myObj)
     switch(myObj.sending_data_type) {
     case sendingDataType._SET:
-        //console.log("---->SET --- Template:");
         setType = myObj.type;
         if(setType == "CHANNEL") {
             currentSet = channels;
@@ -78,27 +76,12 @@ function eflr_data(myObj) {
         }else {
             currentSet = null;
         }
-        templateProps.length = 0;
         break;
     case sendingDataType._OBJECT:
-        //console.log("---->OBJECT ---", "SETTYPE=" + setType, JSON.stringify(currentObj, null, 4));
+        //console.log("---->OBJECT --- " + JSON.stringify(myObj, null, 2));
         const objName = obname2Str(myObj);
         if(currentSet){
-            currentSet[objName] = { };
-            currentObj = currentSet[objName];
-        }else {
-            currentObj = {};
-        }
-        break;
-    case sendingDataType._OBJ_VALUE:
-        if(!currentObj[myObj.label]){
-            currentObj[myObj.label] = [];
-        }
-        if (typeof myObj.value === 'string') {
-            currentObj[myObj.label].push(myObj.value.trim());
-        }
-        else {
-            currentObj[myObj.label].push(safeObname2Str(myObj.value));
+            currentSet[objName] = myObj;
         }
         break;
     }
@@ -106,23 +89,24 @@ function eflr_data(myObj) {
 }
 function get_repcode(){
     if (parsingData.length <= parsingIndex) return -1;
-    console.log("return repcode: " + parsingData[parsingIndex].repcode);
+    //console.log("return repcode: " + parsingData[parsingIndex].repcode);
     return parsingData[parsingIndex].repcode;
 }
 function get_dimension(){
     return parsingData[parsingIndex].dimension;
 }
 function iflr_header(myObj) {
-    console.log("iflr " + cnt);cnt++;
-    console.log(JSON.stringify(channels, null, 2));
-    console.log(JSON.stringify(dlisFrames, null, 2));
+    //console.log("iflr " + cnt);cnt++;
+    //process.exit(1);
     var frameName = obname2Str(myObj.frame_name);
+    console.log("frame name: " + frameName);
     var frameObj = dlisFrames[frameName];
     var channelList = frameObj["CHANNELS"];
     parsingData.length = 0;
     fdata.length = 0;
     for (var chan of channelList) {
-        let channelObj = channels[chan];
+        let channelName = obname2Str(chan);
+        let channelObj = channels[channelName];
         let repcode = channelObj["REPRESENTATION-CODE"][0];
         let dimension = channelObj["DIMENSION"][0];
         parsingData.push({repcode, dimension});
@@ -136,19 +120,27 @@ function iflr_data(myObj) {
     parsingValueCnt++;
     fdata[parsingIndex].data.push(myObj.value);
     if(parsingValueCnt >= parsingData[parsingIndex].dimension){
-        console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
+        //console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
         parsingIndex++;
         parsingValueCnt = 0;
     }
     return 25;
 }
 
+/*
+    {
+        origin: "",
+        copy_number:""
+        name: ""
+        "abc": []
+    }
+*/
 
 socket.on("message", function(buffer) {
     let myObj = binn.decode(buffer);
     //console.log(myObj);
-    console.log(cnt + " --- " + myObj.functionIdx);
-    cnt++;
+    //console.log(cnt + " --- " + myObj.functionIdx);
+    //cnt++;
     let retval = 0;
     switch(myObj.functionIdx){
         case functionIdx.EFLR_DATA:

@@ -150,7 +150,8 @@ void print_value(value_t *val);
 
 void serialize_sized_str(binn* obj, char* key, sized_str_t* str);
 void serialize_obname(binn* obj, char* key, obname_t* obname);
-void serialize_value(binn* g_obj, char* key, value_t* value);
+void serialize_value(binn* g_obj, char* key, value_t* val);
+void serialize_list_add(binn* g_obj, value_t* val);
 
 int jsprint(int f_idx, char *buff);
 #endif

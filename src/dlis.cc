@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
+#define __binn_free(x) binn_free(x); x = NULL
 static int _print_ready = 0;
 binn *g_obj;
 void *sender;
@@ -109,7 +110,7 @@ void on_logical_record_begin(int lrs_idx, int lrs_len, byte_t lrs_attr, int lrs_
 void on_logical_record_end(int lr_idx);
 void on_eflr_component_set(sized_str_t *type, sized_str_t *type_len);
 void on_eflr_component_object(parse_state_t* state, obname_t obname);
-void on_eflr_component_attrib(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value);
+void on_eflr_component_attrib(parse_state_t* state, long count, int repcode, sized_str_t *unit);
 void on_eflr_component_attrib_value(parse_state_t* state, sized_str_t* label, value_t *val);
 void on_iflr_header(obname_t* name, uint32_t index);
 void on_iflr_data (binn* data);
@@ -585,7 +586,7 @@ int parse_iflr_data(dlis_t* dlis) {
             g_obj = binn_object();
             binn_object_set_int32(g_obj, (char *)"functionIdx", _get_repcode_);
             retval = jscall((char*)binn_ptr(g_obj), binn_size(g_obj));
-            binn_free(g_obj);
+            __binn_free(g_obj);
             
             if (retval < 0) { // end of parsing frame data
                 state->parsing_repcode = -1;
@@ -599,7 +600,7 @@ int parse_iflr_data(dlis_t* dlis) {
                 g_obj = binn_object();
                 binn_object_set_int32(g_obj, (char *)"functionIdx", _get_dimension_);
                 state->parsing_dimension = jscall((char*) binn_ptr(g_obj), binn_size(g_obj));
-                binn_free(g_obj);
+                __binn_free(g_obj);
                 state->parsing_value_cnt = 0;
             }
         }
@@ -616,7 +617,7 @@ int parse_iflr_data(dlis_t* dlis) {
             tmp = binn_object();
             serialize_value(tmp, (char*)"value", &val);
             dlis->on_iflr_data_f(tmp);
-            binn_free(tmp);
+            __binn_free(tmp);
 
             state->parsing_value_cnt++;
             current_byte_idx += len;
@@ -895,6 +896,11 @@ void eflr_set_template_object_dequeue(dlis_t* dlis) {
     //printf("******** dequeue get template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
 }
 
+int eflr_set_template_is_last_attr(parse_state_t* state){
+    //printf("read idx %d, write idx %d\n", state->templt_read_idx, state->templt_write_idx);
+    if(state->templt_read_idx >= state->templt_write_idx) return 1;
+    else return 0;
+}
 
 void parse(dlis_t *dlis) {
     // vr related variables
@@ -1019,8 +1025,7 @@ void parse(dlis_t *dlis) {
                 if(len < 0) goto end_loop;
 
 				// callback
-				dlis->on_eflr_component_attrib_f(&dlis->parse_state.attrib_label, count, repcode, &unit, 
-                                            &dlis->parse_state.parsing_obj, eflr_comp_attr_has_value(&dlis->parse_state));
+				dlis->on_eflr_component_attrib_f(&dlis->parse_state, count, repcode, &unit );
 
                 // update state
                 dlis->byte_idx += len;
@@ -1037,13 +1042,14 @@ void parse(dlis_t *dlis) {
                 len = parse_eflr_component_attrib_value(dlis, &val);
                 if (len < 0) goto end_loop;
 
-                // callback
-                dlis->on_eflr_component_attrib_value_f(&dlis->parse_state, &dlis->parse_state.attrib_label, &val);
                 // update state
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
                 dlis->parse_state.vr_byte_cnt += len;
                 dlis->parse_state.attrib_value_cnt--;
+                // callback
+                dlis->on_eflr_component_attrib_value_f(&dlis->parse_state, &dlis->parse_state.attrib_label, &val);
+
                 next_state(dlis);
                 break;
             case EXPECTING_EFLR_COMP_OBJECT:
@@ -1121,7 +1127,7 @@ void on_sul(int seq, char *version, char *structure, int max_rec_len, char *ssi)
 
     binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
     //jscall((char *)binn_ptr(g_obj), binn_size(g_obj));
-    binn_free(g_obj);
+    __binn_free(g_obj);
 }
 
 void on_visible_record_header(int vr_idx, int vr_len, int version) {
@@ -1143,7 +1149,7 @@ void on_eflr_component_set(sized_str_t *type, sized_str_t *name) {
         binn_object_set_int32(g_obj, (char *)"sending_data_type", _SET);
         binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
         jscall((char *)binn_ptr(g_obj), binn_size(g_obj));
-        binn_free(g_obj);
+        __binn_free(g_obj);
     }
 }
 
@@ -1151,7 +1157,7 @@ void on_eflr_component_object(parse_state_t* state, obname_t obname){
     if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || strncmp(state->parsing_set_type, "CHANNEL", 7) == 0){
         if(state->parsing_obj_binn != NULL) {
             jscall((char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
-            binn_free(state->parsing_obj_binn);
+            __binn_free(state->parsing_obj_binn);
         }
         state->parsing_obj_binn = binn_object();
         binn_object_set_int32(state->parsing_obj_binn, (char*)"sending_data_type", _OBJECT);
@@ -1159,47 +1165,51 @@ void on_eflr_component_object(parse_state_t* state, obname_t obname){
         binn_object_set_int32(state->parsing_obj_binn, (char*)"copy_number", obname.copy_number);
         serialize_sized_str(state->parsing_obj_binn, (char*)"name", &obname.name);
         binn_object_set_int32(state->parsing_obj_binn, (char *)"functionIdx", _eflr_data_);
-        
-        /*
-        g_obj = binn_object();
-        binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJECT);
-        binn_object_set_int32(g_obj, (char*)"origin", obname.origin);
-        binn_object_set_int32(g_obj, (char*)"copy_number", obname.copy_number);
-        serialize_sized_str(g_obj, (char*)"name", &obname.name);
-
-        binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
-        jscall((char*)binn_ptr(g_obj), binn_size(g_obj));
-        
-        binn_free(g_obj);
-        */
     }
 }
 
-void on_eflr_component_attrib(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value) {
+void on_eflr_component_attrib(parse_state_t* state, long count, int repcode, sized_str_t *unit) {
+    /*
     g_obj = binn_object();
     serialize_sized_str(g_obj, (char*)"label", label);
     binn_object_set_int32(g_obj, (char*)"count", count);
     binn_object_set_int32(g_obj, (char*)"repcode", repcode);
     serialize_sized_str(g_obj, (char*)"unit", unit);
-    /*if(obname->name.len < 0){
+    if(obname->name.len < 0){
         binn_object_set_int32(g_obj, (char*)"sending_data_type", _TEMPLATE);
         jscall(_eflr_data_,(char*)binn_ptr(g_obj), binn_size(g_obj));
-    }*/
-    binn_free(g_obj);
+    }
+    __binn_free(g_obj);
+    */    
+    
+    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || strncmp(state->parsing_set_type, "CHANNEL", 7) == 0){
+        if(!eflr_comp_attr_has_value(state) && eflr_set_template_is_last_attr(state)){
+            jscall((char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
+            __binn_free(state->parsing_obj_binn);
+        }
+    }
 }
 
 void on_eflr_component_attrib_value(parse_state_t* state,  sized_str_t* label, value_t *val) {
     if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || strncmp(state->parsing_set_type, "CHANNEL", 7) == 0){
-        g_obj = binn_object();
-        binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJ_VALUE);
-        serialize_sized_str(g_obj, (char*)"label", label);
-        serialize_value(g_obj, (char*)"value", val);
+        if(state->parsing_obj_values == NULL){
+            state->parsing_obj_values = binn_list();
+        }
 
-        binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
-        jscall((char*)binn_ptr(g_obj), binn_size(g_obj));
+        serialize_list_add(state->parsing_obj_values, val);
 
-        binn_free(g_obj);
-        
+        if(state->attrib_value_cnt <= 0) {
+            char attr_label[label->len + 1];
+            memmove(attr_label, label->buff, label->len);
+            attr_label[label->len] = '\0';
+            binn_object_set_object(state->parsing_obj_binn, attr_label, state->parsing_obj_values);
+            __binn_free(state->parsing_obj_values);
+
+            if(eflr_set_template_is_last_attr(state)){
+                jscall((char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
+                __binn_free(state->parsing_obj_binn);
+            }
+        }
     }
 }
 
@@ -1211,7 +1221,7 @@ void on_iflr_header(obname_t* frame_name, uint32_t index) {
     binn_object_set_int32(g_obj, (char *)"functionIdx", _iflr_header_);
     jscall((char *)binn_ptr(g_obj), binn_size(g_obj));
 
-    binn_free(g_obj);
+    __binn_free(g_obj);
 }
 void on_iflr_data(binn* data){
     binn_object_set_int32(data, (char *)"functionIdx", _iflr_data_);
@@ -1259,7 +1269,6 @@ int jscall(char *buff, int len) {
     buffer[nbytes] = '\0';
     //printf("jscall return value: %s\n", buffer);
     return atoi(buffer);
-//    return -1;
 }
 /*
 void initSocket(){

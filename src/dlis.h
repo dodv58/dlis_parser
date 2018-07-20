@@ -143,7 +143,7 @@ struct dlis_s {
     void (*on_logical_record_end_f)(int lr_idx);
 	void (*on_eflr_component_set_f)(sized_str_t *type, sized_str_t *type_len);
 	void (*on_eflr_component_object_f)(parse_state_t* state, obname_t obname);
-    void (*on_eflr_component_attrib_f)(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value);
+    void (*on_eflr_component_attrib_f)(parse_state_t* state, long count, int repcode, sized_str_t *unit);
     void (*on_eflr_component_attrib_value_f)(parse_state_t* state, sized_str_t* label, value_t *val);
     void (*on_iflr_header_f)(obname_t* name, uint32_t index);
     void (*on_iflr_data_f) (binn* data);
