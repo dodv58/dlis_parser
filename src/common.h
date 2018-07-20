@@ -153,5 +153,4 @@ void serialize_obname(binn* obj, char* key, obname_t* obname);
 void serialize_value(binn* g_obj, char* key, value_t* value);
 
 int jsprint(int f_idx, char *buff);
-int jscall(int f_idx, char *buff, int len);
 #endif

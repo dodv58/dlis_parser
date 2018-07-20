@@ -2,6 +2,11 @@
 #define __DLIS_H__
 
 #include "common.h"
+#include <zmq.h>
+#include <pthread.h>
+
+
+#define ENDPOINT "ipc:///tmp/dlis-socket"
 
 enum lrs_iflr_type_e {
     FDATA = 0,
@@ -107,6 +112,8 @@ struct parse_state_s {
 
     char parsing_set_type[256];
     obname_t parsing_obj;
+    binn* parsing_obj_binn;
+    binn* parsing_obj_values;
 
     //data related to iflr data
     int parsing_repcode;
@@ -137,7 +144,7 @@ struct dlis_s {
 	void (*on_eflr_component_set_f)(sized_str_t *type, sized_str_t *type_len);
 	void (*on_eflr_component_object_f)(parse_state_t* state, obname_t obname);
     void (*on_eflr_component_attrib_f)(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value);
-    void (*on_eflr_component_attrib_value_f)(sized_str_t* label, value_t *val);
+    void (*on_eflr_component_attrib_value_f)(parse_state_t* state, sized_str_t* label, value_t *val);
     void (*on_iflr_header_f)(obname_t* name, uint32_t index);
     void (*on_iflr_data_f) (binn* data);
     
@@ -146,7 +153,9 @@ typedef struct dlis_s dlis_t;
 
 /* dlis file functions */
 void dlis_init(dlis_t *dlis);
-void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count);
+void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count);
 
-void do_parse(char *file_name);
+void *do_parse(void *file_name_void);
+int jscall(char *buff, int len);
+void initSocket();
 #endif

@@ -8,6 +8,9 @@
 #include <stdarg.h>
 
 static int _print_ready = 0;
+binn *g_obj;
+void *sender;
+void *context;
 
 const char * EFLR_TYPE_NAMES[] = {
     "FHRL", "OLR", "AXIS", "CHANNL", "FRAME", "STATIC", "SCRIPT", "UPDATE", "UDI", "LNAME",
@@ -67,6 +70,7 @@ int parse_eflr_component_invatr(dlis_t *dlis);
 int parse_eflr_component_object(dlis_t *dlis, obname_t * obname);
 
 int parse_iflr_header(dlis_t *dlis, obname_t* frame_name, uint32_t* index);
+int parse_iflr_data(dlis_t* dlis);
 
 int lrs_attr_is_eflr(parse_state_t *state);
 int lrs_attr_is_first_lrs(parse_state_t *state);
@@ -98,6 +102,17 @@ int eflr_comp_object_has_name(parse_state_t *state);
 void eflr_set_template_object_queue(dlis_t* dlis, sized_str_t *label, long count, int repcode, sized_str_t *unit);
 void eflr_set_template_object_get(dlis_t* dlis, sized_str_t *label, long *count, int *repcode, sized_str_t *unit);
 void eflr_set_template_object_dequeue(dlis_t* dlis);
+
+void on_sul(int seq, char *version, char *structure, int max_rec_len, char *ssi);
+void on_visible_record_header(int vr_idx, int vr_len, int version);
+void on_logical_record_begin(int lrs_idx, int lrs_len, byte_t lrs_attr, int lrs_type);
+void on_logical_record_end(int lr_idx);
+void on_eflr_component_set(sized_str_t *type, sized_str_t *type_len);
+void on_eflr_component_object(parse_state_t* state, obname_t obname);
+void on_eflr_component_attrib(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value);
+void on_eflr_component_attrib_value(parse_state_t* state, sized_str_t* label, value_t *val);
+void on_iflr_header(obname_t* name, uint32_t index);
+void on_iflr_data (binn* data);
 
 char g_buff[1024];
 int g_idx = 0;
@@ -203,6 +218,7 @@ void dlis_init(dlis_t *dlis) {
 
     dlis->parse_state.code = EXPECTING_SUL;
     //bzero(dlis, sizeof(dlis_t));
+    /*
     dlis->on_sul_f = &on_sul_default;
     dlis->on_visible_record_header_f = &on_visible_record_header_default;
     dlis->on_logical_record_begin_f = &on_logical_record_begin_default;
@@ -212,9 +228,20 @@ void dlis_init(dlis_t *dlis) {
 	dlis->on_eflr_component_attrib_f = &on_eflr_component_attrib_default;
     dlis->on_eflr_component_attrib_value_f = &on_eflr_component_attrib_value_default;
     dlis->on_iflr_header_f = &on_iflr_header_default;
+    */
     //..........
+    dlis->on_sul_f = &on_sul;
+    dlis->on_visible_record_header_f = &on_visible_record_header;
+    dlis->on_logical_record_begin_f = &on_logical_record_begin;
+    dlis->on_logical_record_end_f = &on_logical_record_end;
+	dlis->on_eflr_component_set_f = &on_eflr_component_set;
+	dlis->on_eflr_component_object_f = &on_eflr_component_object;
+	dlis->on_eflr_component_attrib_f = &on_eflr_component_attrib;
+    dlis->on_eflr_component_attrib_value_f = &on_eflr_component_attrib_value;
+    dlis->on_iflr_header_f = &on_iflr_header;
+    dlis->on_iflr_data_f = &on_iflr_data;
 }
-void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
+void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
     //printf("dlis_read: in_count:%d, byte_idx=%d, max_byte_idx:%d, buffer_idx=%d\n", in_count, dlis->byte_idx, dlis->max_byte_idx, dlis->buffer_idx);
     int b_idx = dlis->buffer_idx;
     if (dlis->max_byte_idx + in_count >= DLIS_BUFF_SIZE) {
@@ -234,6 +261,7 @@ void dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
     memcpy(&(buffer[dlis->max_byte_idx]), in_buff, in_count);
     dlis->max_byte_idx += in_count;
     parse(dlis);
+    return NULL;
 }
 
 #define SUL_LEN 80
@@ -553,7 +581,12 @@ int parse_iflr_data(dlis_t* dlis) {
     if(dlis->parse_state.lrs_type != EOD){
         int retval;
         if (state->parsing_dimension <= 0 || state->parsing_value_cnt >= state->parsing_dimension) {
-            retval = jscall(_get_repcode_, NULL, 0);
+
+            g_obj = binn_object();
+            binn_object_set_int32(g_obj, (char *)"functionIdx", _get_repcode_);
+            retval = jscall((char*)binn_ptr(g_obj), binn_size(g_obj));
+            binn_free(g_obj);
+            
             if (retval < 0) { // end of parsing frame data
                 state->parsing_repcode = -1;
                 state->parsing_dimension = -1;
@@ -562,7 +595,11 @@ int parse_iflr_data(dlis_t* dlis) {
             }
             else {
                 state->parsing_repcode = retval;
-                state->parsing_dimension = jscall(_get_dimension_, NULL, 0);
+
+                g_obj = binn_object();
+                binn_object_set_int32(g_obj, (char *)"functionIdx", _get_dimension_);
+                state->parsing_dimension = jscall((char*) binn_ptr(g_obj), binn_size(g_obj));
+                binn_free(g_obj);
                 state->parsing_value_cnt = 0;
             }
         }
@@ -573,15 +610,13 @@ int parse_iflr_data(dlis_t* dlis) {
         for(int i = state->parsing_value_cnt; i < state->parsing_dimension; i++){
             value_invalidate(&val);
             len = parse_value(&p_buffer[current_byte_idx], dlis->max_byte_idx - current_byte_idx, state->parsing_repcode, &val);
-            //printf("len %d\n", len);
             if(len <= 0) {
                 break;
             }
-            /*tmp = binn_object();
+            tmp = binn_object();
             serialize_value(tmp, (char*)"value", &val);
             dlis->on_iflr_data_f(tmp);
-            binn_free(tmp);*/
-            dlis->on_iflr_data_f(tmp);
+            binn_free(tmp);
 
             state->parsing_value_cnt++;
             current_byte_idx += len;
@@ -719,8 +754,8 @@ void next_state(dlis_t* dlis){
                 }
 			}
 			else {
+                printf("IFLR_HEADER\n");
                 dlis->parse_state.code = EXPECTING_IFLR_HEADER;
-				// TODO: IFLR case
 			}
 			break;
 		case EXPECTING_EFLR_COMP:
@@ -1003,7 +1038,7 @@ void parse(dlis_t *dlis) {
                 if (len < 0) goto end_loop;
 
                 // callback
-                dlis->on_eflr_component_attrib_value_f(&dlis->parse_state.attrib_label, &val);
+                dlis->on_eflr_component_attrib_value_f(&dlis->parse_state, &dlis->parse_state.attrib_label, &val);
                 // update state
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
@@ -1039,9 +1074,6 @@ void parse(dlis_t *dlis) {
                 next_state(dlis);
                 break;
             case EXPECTING_IFLR_HEADER:
-                while( 1 ) {
-                    usleep(1000*1000);
-                }
                 len = parse_iflr_header(dlis, &frame_name, &frame_index);
                 if (len <= 0) goto end_loop;
                 // callback 
@@ -1078,17 +1110,17 @@ end_loop:
     return;
 }
 
-binn *g_obj;
 void on_sul(int seq, char *version, char *structure, int max_rec_len, char *ssi) {
-    
     g_obj = binn_object();
+
     binn_object_set_int32(g_obj, (char *)"seq", seq);
     binn_object_set_str(g_obj, (char *)"version", version);
     binn_object_set_str(g_obj, (char *)"structure", structure);
     binn_object_set_int32(g_obj, (char *)"max_rec_len", max_rec_len);
     binn_object_set_str(g_obj, (char *)"ssi", ssi);
 
-    jscall(_eflr_data_, (char *)binn_ptr(g_obj), binn_size(g_obj));
+    binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
+    //jscall((char *)binn_ptr(g_obj), binn_size(g_obj));
     binn_free(g_obj);
 }
 
@@ -1103,32 +1135,44 @@ void on_logical_record_end(int lrs_idx) {
 }
 
 void on_eflr_component_set(sized_str_t *type, sized_str_t *name) {
-    g_obj = binn_object();
-    serialize_sized_str(g_obj,(char*) "type", type);
-    serialize_sized_str(g_obj,(char*) "name", name);
-    binn_object_set_int32(g_obj, (char *)"sending_data_type", _SET);
-    jscall(_eflr_data_, (char *)binn_ptr(g_obj), binn_size(g_obj));
-/*
-    if(strncmp((const char*)type->buff, "FRAME", 5) == 0){
-        binn_object_set_int32(g_obj, (char*)"sending_data_type", _SET_FRAME);
-        jscall(_eflr_data_, (char *)binn_ptr(g_obj), binn_size(g_obj));
+    if(strncmp((const char*)type->buff, (const char*)"FRAME", type->len) == 0 ||
+        strncmp((const char*)type->buff, (const char*)"CHANNEL", type->len) == 0){
+        g_obj = binn_object();
+        serialize_sized_str(g_obj,(char*) "type", type);
+        serialize_sized_str(g_obj,(char*) "name", name);
+        binn_object_set_int32(g_obj, (char *)"sending_data_type", _SET);
+        binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
+        jscall((char *)binn_ptr(g_obj), binn_size(g_obj));
+        binn_free(g_obj);
     }
-    if(strncmp((const char*)type->buff, "CHANNEL", 5) == 0){
-        binn_object_set_int32(g_obj, (char*)"sending_data_type", _SET_CHANNEL);
-        jscall(_eflr_data_, (char *)binn_ptr(g_obj), binn_size(g_obj));
-    }
-*/
-    binn_free(g_obj);
 }
 
 void on_eflr_component_object(parse_state_t* state, obname_t obname){
-    g_obj = binn_object();
-    binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJECT);
-    binn_object_set_int32(g_obj, (char*)"origin", obname.origin);
-    binn_object_set_int32(g_obj, (char*)"copy_number", obname.copy_number);
-    serialize_sized_str(g_obj, (char*)"name", &obname.name);
-    jscall(_eflr_data_, (char*)binn_ptr(g_obj), binn_size(g_obj));
-    binn_free(g_obj);
+    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || strncmp(state->parsing_set_type, "CHANNEL", 7) == 0){
+        if(state->parsing_obj_binn != NULL) {
+            jscall((char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
+            binn_free(state->parsing_obj_binn);
+        }
+        state->parsing_obj_binn = binn_object();
+        binn_object_set_int32(state->parsing_obj_binn, (char*)"sending_data_type", _OBJECT);
+        binn_object_set_int32(state->parsing_obj_binn, (char*)"origin", obname.origin);
+        binn_object_set_int32(state->parsing_obj_binn, (char*)"copy_number", obname.copy_number);
+        serialize_sized_str(state->parsing_obj_binn, (char*)"name", &obname.name);
+        binn_object_set_int32(state->parsing_obj_binn, (char *)"functionIdx", _eflr_data_);
+        
+        /*
+        g_obj = binn_object();
+        binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJECT);
+        binn_object_set_int32(g_obj, (char*)"origin", obname.origin);
+        binn_object_set_int32(g_obj, (char*)"copy_number", obname.copy_number);
+        serialize_sized_str(g_obj, (char*)"name", &obname.name);
+
+        binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
+        jscall((char*)binn_ptr(g_obj), binn_size(g_obj));
+        
+        binn_free(g_obj);
+        */
+    }
 }
 
 void on_eflr_component_attrib(sized_str_t *label, long count, int repcode, sized_str_t *unit, obname_t *obname, int has_value) {
@@ -1144,25 +1188,34 @@ void on_eflr_component_attrib(sized_str_t *label, long count, int repcode, sized
     binn_free(g_obj);
 }
 
-void on_eflr_component_attrib_value( sized_str_t* label, value_t *val) {
-    g_obj = binn_object();
-    binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJ_VALUE);
-    serialize_sized_str(g_obj, (char*)"label", label);
-    serialize_value(g_obj, (char*)"value", val);
-    jscall(_eflr_data_,(char*)binn_ptr(g_obj), binn_size(g_obj));
-    binn_free(g_obj);
+void on_eflr_component_attrib_value(parse_state_t* state,  sized_str_t* label, value_t *val) {
+    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || strncmp(state->parsing_set_type, "CHANNEL", 7) == 0){
+        g_obj = binn_object();
+        binn_object_set_int32(g_obj, (char*)"sending_data_type", _OBJ_VALUE);
+        serialize_sized_str(g_obj, (char*)"label", label);
+        serialize_value(g_obj, (char*)"value", val);
+
+        binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
+        jscall((char*)binn_ptr(g_obj), binn_size(g_obj));
+
+        binn_free(g_obj);
+        
+    }
 }
 
 void on_iflr_header(obname_t* frame_name, uint32_t index) {
     g_obj = binn_object();
     serialize_obname(g_obj, (char *)"frame_name", frame_name);
     binn_object_set_int32(g_obj, (char *)"fdata_index", index);
-    jscall(_iflr_header_, (char *)binn_ptr(g_obj), binn_size(g_obj));
+
+    binn_object_set_int32(g_obj, (char *)"functionIdx", _iflr_header_);
+    jscall((char *)binn_ptr(g_obj), binn_size(g_obj));
+
     binn_free(g_obj);
 }
 void on_iflr_data(binn* data){
-    //jscall(_iflr_data_, (char *)binn_ptr(data), binn_size(data));
-    jscall(_iflr_data_, NULL, 0);
+    binn_object_set_int32(data, (char *)"functionIdx", _iflr_data_);
+    jscall((char *)binn_ptr(data), binn_size(data));
 }
 
 void dump(dlis_t *dlis) {
@@ -1174,22 +1227,14 @@ void dump(dlis_t *dlis) {
         dlis->max_byte_idx);
 }
 
-void do_parse(char *file_name) {
+void *do_parse(void *file_name_void) {
+
+    char* file_name = (char*)file_name_void;
     printf("do_parse %s\n", file_name);
     byte_t buffer[4 * 1024];
     int byte_read;
     dlis_t dlis;
     dlis_init(&dlis);
-    dlis.on_sul_f = &on_sul;
-    dlis.on_visible_record_header_f = &on_visible_record_header;
-    dlis.on_logical_record_begin_f = &on_logical_record_begin;
-    dlis.on_logical_record_end_f = &on_logical_record_end;
-	dlis.on_eflr_component_set_f = &on_eflr_component_set;
-	dlis.on_eflr_component_object_f = &on_eflr_component_object;
-	dlis.on_eflr_component_attrib_f = &on_eflr_component_attrib;
-    dlis.on_eflr_component_attrib_value_f = &on_eflr_component_attrib_value;
-    dlis.on_iflr_header_f = &on_iflr_header;
-    dlis.on_iflr_data_f = &on_iflr_data;
     FILE *f = fopen(file_name, "rb");
     if (f == NULL) {
         fprintf(stderr, "Error open file %s\n", strerror(errno));
@@ -1204,5 +1249,35 @@ void do_parse(char *file_name) {
         dlis_read(&dlis, buffer, byte_read);
     }
     printf("Finish reading file\n");
-    dump(&dlis);
+    return NULL;
+}
+int jscall(char *buff, int len) {
+    //printf("jscall");
+    char buffer[20];
+    zmq_send(sender, buff, len, 0);
+    int nbytes = zmq_recv(sender, buffer, sizeof(buffer), 0);
+    buffer[nbytes] = '\0';
+    //printf("jscall return value: %s\n", buffer);
+    return atoi(buffer);
+//    return -1;
+}
+/*
+void initSocket(){
+    context = zmq_ctx_new();
+    sender = zmq_socket(context, ZMQ_PUSH);
+    int rc = zmq_bind(sender, ENDPOINT);
+    if (rc < 0) {
+        fprintf(stderr, "Error bind socket\n");
+    }
+    fprintf(stderr, "connect done %d\n", rc);
+}
+*/
+void initSocket(){
+    context = zmq_ctx_new();
+    sender = zmq_socket(context, ZMQ_REQ);
+    int rc = zmq_connect(sender, ENDPOINT);
+    if (rc < 0) {
+        fprintf(stderr, "Error connecting socket\n");
+    }
+    fprintf(stderr, "connect done %d\n", rc);
 }

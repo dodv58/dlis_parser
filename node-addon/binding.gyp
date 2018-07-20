@@ -7,7 +7,7 @@
             "../src"
         ],
         "libraries": [
-            "-lbinn"
+            "-lbinn", "-lzmq"
         ]
     }]
 }

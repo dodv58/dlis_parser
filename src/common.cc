@@ -584,13 +584,6 @@ int jsprint(int f_idx, char *buff) {
     }
     return jsprint_f(f_idx, buff);
 }
-int jscall(int f_idx, char *buff, int len) {
-    if (!send_to_js_f) {
-        fprintf(stderr, "print function pointer is not set\n");
-        exit(-1);
-    }
-    return send_to_js_f(f_idx, buff, len);
-}
 void serialize_sized_str(binn* obj, char* key, sized_str_t* str){
     char _str[str->len + 1];
     memmove(_str, str->buff, str->len);
