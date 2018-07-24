@@ -57,18 +57,19 @@ enum parse_state_code_e {
     EXPECTING_SUL = 0,
     EXPECTING_VR = 1,
     EXPECTING_LRS = 2,
-    EXPECTING_EFLR_COMP = 3,
-    EXPECTING_EFLR_COMP_SET = 4,
-    EXPECTING_EFLR_COMP_RSET = 5,
-    EXPECTING_EFLR_COMP_RDSET = 6,
-    EXPECTING_EFLR_COMP_ABSATR = 7,
-    EXPECTING_EFLR_COMP_ATTRIB = 8,
-    EXPECTING_EFLR_COMP_INVATR = 9,
-    EXPECTING_EFLR_COMP_OBJECT = 10,
-    EXPECTING_LRS_TRAILING = 11,
-    EXPECTING_EFLR_COMP_ATTRIB_VALUE = 12,
-    EXPECTING_IFLR_HEADER = 13,
-    EXPECTING_IFLR_DATA = 14
+    EXPECTING_ENCRYPTION_PACKET = 3,
+    EXPECTING_EFLR_COMP = 4,
+    EXPECTING_EFLR_COMP_SET = 5,
+    EXPECTING_EFLR_COMP_RSET = 6,
+    EXPECTING_EFLR_COMP_RDSET = 7,
+    EXPECTING_EFLR_COMP_ABSATR = 8,
+    EXPECTING_EFLR_COMP_ATTRIB = 9,
+    EXPECTING_EFLR_COMP_INVATR = 10,
+    EXPECTING_EFLR_COMP_OBJECT = 11,
+    EXPECTING_LRS_TRAILING = 12,
+    EXPECTING_EFLR_COMP_ATTRIB_VALUE = 13,
+    EXPECTING_IFLR_HEADER = 14,
+    EXPECTING_IFLR_DATA = 15
 };
 
 typedef struct eflr_template_object_s {
@@ -119,6 +120,8 @@ struct parse_state_s {
     int parsing_repcode;
     int parsing_dimension;
     int parsing_value_cnt;
+    binn* parsing_iflr_values;
+    //int iflr_index; //temporary
 };
 typedef struct parse_state_s parse_state_t;
 
@@ -146,7 +149,7 @@ struct dlis_s {
     void (*on_eflr_component_attrib_f)(parse_state_t* state, long count, int repcode, sized_str_t *unit);
     void (*on_eflr_component_attrib_value_f)(parse_state_t* state, sized_str_t* label, value_t *val);
     void (*on_iflr_header_f)(obname_t* name, uint32_t index);
-    void (*on_iflr_data_f) (binn* data);
+    void (*on_iflr_data_f) (parse_state_t* state);
     
 };
 typedef struct dlis_s dlis_t;

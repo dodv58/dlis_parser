@@ -15,8 +15,8 @@ extern int g_idx;
 
 //#define _printf  if(0) printf
 #define _printf snprintf
-//#define app_print(buff) printf("%s", buff)
-#define app_print(f_idx, buff) jsprint(f_idx, buff)
+#define app_print(f_idx, buff) printf("%s", buff)
+//#define app_print(f_idx, buff) jsprint(f_idx, buff)
 
 extern int (*jsprint_f)(int f_idx, char *buff);
 extern int (*send_to_js_f)(int f_idx, char *buff, int len);

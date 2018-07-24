@@ -443,7 +443,9 @@ int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
             }
             break;
         case DLIS_ATTREF:
+            break;
         case DLIS_STATUS:
+            parse_ushort(buff, &output->u.uint_val);
             break;
     }
     return repcode_len;
@@ -541,6 +543,7 @@ void print_value(value_t *val) {
         case DLIS_UNORM:
         case DLIS_ULONG:
         case DLIS_UVARI:
+        case DLIS_STATUS:
             len = _printf(__g_cbuff, __g_clen, "value=%d", val->u.uint_val);
             __g_cend(len);
             break;
@@ -568,7 +571,6 @@ void print_value(value_t *val) {
             print_objref(&val->u.objref_val);
             break;
         case DLIS_ATTREF:
-        case DLIS_STATUS:
             fprintf(stderr, "haven't implemented yet %d\n", val->repcode);
             exit(-1);
             break;
@@ -631,6 +633,7 @@ void serialize_value(binn* g_obj, char* key, value_t* val){
         case DLIS_UNORM:
         case DLIS_ULONG:
         case DLIS_UVARI:
+        case DLIS_STATUS:
             binn_object_set_uint32(g_obj, key, val->u.uint_val);
             break;
         case DLIS_ORIGIN:
@@ -661,7 +664,6 @@ void serialize_value(binn* g_obj, char* key, value_t* val){
             }
             break;
         case DLIS_ATTREF:
-        case DLIS_STATUS:
             fprintf(stderr, "haven't implemented yet %d\n", val->repcode);
             exit(-1);
             break;
@@ -691,6 +693,7 @@ void serialize_list_add(binn* g_obj, value_t* val){
         case DLIS_UNORM:
         case DLIS_ULONG:
         case DLIS_UVARI:
+        case DLIS_STATUS:
             binn_list_add_uint32(g_obj, val->u.uint_val);
             break;
         case DLIS_ORIGIN:
@@ -729,7 +732,6 @@ void serialize_list_add(binn* g_obj, value_t* val){
             }
             break;
         case DLIS_ATTREF:
-        case DLIS_STATUS:
             fprintf(stderr, "haven't implemented yet %d\n", val->repcode);
             exit(-1);
             break;
