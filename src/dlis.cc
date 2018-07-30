@@ -8,10 +8,11 @@
 #include <stdarg.h>
 
 #define __binn_free(x) binn_free(x); x = NULL
-static int _print_ready = 1;
 binn *g_obj;
 void *sender;
 void *context;
+int vr_cnt = 0;
+int lrs_cnt = 0;
 
 const char * EFLR_TYPE_NAMES[] = {
     "FHRL", "OLR", "AXIS", "CHANNL", "FRAME", "STATIC", "SCRIPT", "UPDATE", "UDI", "LNAME",
@@ -66,9 +67,6 @@ void next_state(dlis_t* dlis);
 
 int parse_eflr_component(dlis_t *dlis, byte_t *eflr_comp_first_byte);
 int parse_eflr_component_set(dlis_t *dlis, sized_str_t *type, sized_str_t *name);
-int parse_eflr_component_rset(dlis_t *dlis);
-int parse_eflr_component_rdset(dlis_t *dlis);
-int parse_eflr_component_absatr(dlis_t *dlis);
 int parse_eflr_component_attrib(dlis_t *dlis, sized_str_t *label, long *count, 
 								             int *repcode, sized_str_t *unit);
 int parse_eflr_component_attrib_value(dlis_t *dlis, value_t *val);
@@ -335,6 +333,7 @@ int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t
     // parse lrs attributes
     *lrs_attr = p_buffer[current_byte_idx];
     current_byte_idx++;
+    printf("==>parse_lrs_header attr: 0x%02x\n", *lrs_attr);
 
     // parse lrs type
     parse_ushort(&(p_buffer[current_byte_idx]), lrs_type);
@@ -344,6 +343,8 @@ int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t
 }
 
 int parse_lrs_encryption_packet(dlis_t *dlis) {
+    /*
+    //temporary: skip encrypted lrs
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
     int current_byte_idx = dlis->byte_idx;
     int available_bytes = dlis->max_byte_idx - dlis->byte_idx;
@@ -359,6 +360,14 @@ int parse_lrs_encryption_packet(dlis_t *dlis) {
     if (current_byte_idx - dlis->byte_idx > available_bytes) return -1;
     printf("parse_lrs_encryption_packet %d\n", packet_len.u.uint_val);
     return current_byte_idx - dlis->byte_idx;
+    */
+
+    //skip encrypted lrs
+    parse_state_t* state = &dlis->parse_state;
+    int lrs_remain = state->lrs_len - state->lrs_byte_cnt;
+    int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;
+    if(avail_bytes >= lrs_remain) return lrs_remain;
+    else return -1;
 }
 
 int parse_lrs_trailing(dlis_t *dlis) {
@@ -376,7 +385,7 @@ int parse_eflr_component(dlis_t *dlis, byte_t *eflr_comp_first_byte){
 
     // parse component first byte (role (3-bit) & format (5-bit))
     *eflr_comp_first_byte = p_buffer[dlis->byte_idx];
-    printf("==> 0x%02x\n", *eflr_comp_first_byte);
+    //printf("==> 0x%02x\n", *eflr_comp_first_byte);
     
     return 1;
 }
@@ -419,15 +428,6 @@ int parse_eflr_component_set(dlis_t *dlis, sized_str_t *type, sized_str_t *name)
     return current_byte_idx - dlis->byte_idx;
 }
 
-int parse_eflr_component_rset(dlis_t *dlis) {
-    return 0;
-}
-int parse_eflr_component_rdset(dlis_t *dlis) {
-    return 0;
-}
-int parse_eflr_component_absatr(dlis_t *dlis) {
-    return 0;
-}
 int parse_eflr_component_attrib(dlis_t *dlis, sized_str_t *label, long *count, 
 								int *repcode, sized_str_t *unit) 
 {
@@ -791,8 +791,8 @@ int trailing_len(dlis_t *dlis) {
 void next_state(dlis_t* dlis){
     int lrs_trail_len = 0;
 	
-    //printf("--next_state(): vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d\n", 
-	//	dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt);
+    printf("--next_state(): vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d\n", 
+		dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt);
 
 
 	switch(dlis->parse_state.code){
@@ -803,7 +803,13 @@ void next_state(dlis_t* dlis){
 			dlis->parse_state.code = EXPECTING_LRS;
 			break;
 		case EXPECTING_LRS:
+            /* TODO: parse encrypted lrs
             if (lrs_attr_has_encryption_packet(&dlis->parse_state)) {
+                dlis->parse_state.code = EXPECTING_ENCRYPTION_PACKET;
+            }
+            */
+            if(lrs_attr_is_encrypted(&dlis->parse_state)){
+                //temporary: skip encrypted lrs
                 dlis->parse_state.code = EXPECTING_ENCRYPTION_PACKET;
             }
 			else if (lrs_attr_is_eflr(&dlis->parse_state)) {
@@ -818,7 +824,17 @@ void next_state(dlis_t* dlis){
 			}
 			break;
         case EXPECTING_ENCRYPTION_PACKET:
+            /* TODO: parse encrypted lrs
             dlis->parse_state.code = EXPECTING_EFLR_COMP;
+            */
+            
+            //temporary: skip encrypted lrs
+			if (dlis->parse_state.vr_len > dlis->parse_state.vr_byte_cnt){
+				dlis->parse_state.code = EXPECTING_LRS;
+			} 
+            else {
+				dlis->parse_state.code = EXPECTING_VR;
+			}
             break;
 		case EXPECTING_EFLR_COMP:
 			if (eflr_comp_is_set(&(dlis->parse_state))) {
@@ -931,7 +947,6 @@ void eflr_set_template_object_queue(dlis_t* dlis, sized_str_t *label, long count
 	templt[write_idx].count = (count < 0)?1:count;
 	templt[write_idx].unit = *unit;
 	//memcpy(&templt[write_idx].default_value, default_val, sizeof(value_t));
-
 	dlis->parse_state.templt_write_idx++;
     //printf("********queue template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
 }
@@ -995,9 +1010,8 @@ void parse(dlis_t *dlis) {
 
     while (1) {
         // check if a lrs segment is in buffer. Get padding length right away and mark that it has length
-        //if(_print_ready)
-        //    printf("parse loop: parse_state.code:%s, max_byte_idx:%d, byte_idx:%d\n", 
-        //        PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx);
+            printf("parse loop: parse_state.code:%s, max_byte_idx:%d, byte_idx:%d\n", 
+                PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx);
 
         switch(dlis->parse_state.code) {
             case EXPECTING_SUL:
@@ -1008,6 +1022,9 @@ void parse(dlis_t *dlis) {
 				next_state(dlis);
                 break;
             case EXPECTING_VR:
+                printf("==> vr index: %d\n", vr_cnt);
+                vr_cnt++;
+                lrs_cnt = 0;
                 len = parse_vr_header(dlis, &vr_len, &vr_version);
                 if(len < 0) goto end_loop;
 				//callback
@@ -1023,6 +1040,8 @@ void parse(dlis_t *dlis) {
 				next_state(dlis);
                 break;
             case EXPECTING_LRS:
+                printf("==> lrs index: %d\n", lrs_cnt);
+                lrs_cnt++;
                 len = parse_lrs_header(dlis, &lrs_len, &lrs_attr, &lrs_type);
                 if(len < 0) goto end_loop;
 
@@ -1036,7 +1055,6 @@ void parse(dlis_t *dlis) {
                 dlis->lrs_idx++;
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_len = lrs_len;
-                //dlis->parse_state.lrs_byte_cnt = 0;
                 dlis->parse_state.lrs_byte_cnt = len;
                 dlis->parse_state.vr_byte_cnt += len;
                 dlis->parse_state.lrs_attr = lrs_attr;

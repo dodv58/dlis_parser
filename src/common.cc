@@ -309,6 +309,7 @@ int parse_ident(byte_t *buff, int buff_len, sized_str_t *output) {
     if ((buff_len-1) < (int)len) return -1; // Not enough data to parse
     output->buff = (buff + 1);
     output->len = len;
+    printf("... value: %.*s\n", len, output->buff);
     return len + 1;
 }
 
