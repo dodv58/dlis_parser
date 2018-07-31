@@ -333,7 +333,7 @@ int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t
     // parse lrs attributes
     *lrs_attr = p_buffer[current_byte_idx];
     current_byte_idx++;
-    printf("==>parse_lrs_header attr: 0x%02x\n", *lrs_attr);
+    //printf("==>parse_lrs_header attr: 0x%02x\n", *lrs_attr);
 
     // parse lrs type
     parse_ushort(&(p_buffer[current_byte_idx]), lrs_type);
@@ -341,7 +341,7 @@ int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t
     
     if(dlis->parse_state.unparsed_buff_len > 0){
         parse_state_t* state = &dlis->parse_state;
-        printf("=== %d\n", state->unparsed_buff_len);
+        //printf("=== %d\n", state->unparsed_buff_len);
         *lrs_len += state->unparsed_buff_len;
         state->vr_len += state->unparsed_buff_len;
         memmove(&p_buffer[current_byte_idx - state->unparsed_buff_len], state->unparsed_buff, state->unparsed_buff_len);
@@ -552,8 +552,6 @@ int parse_eflr_component_object(dlis_t *dlis, obname_t* obname) {
     int avail_bytes = dlis->max_byte_idx - current_byte_idx;
     int lrs_byte_remain = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt;
     int obname_len = parse_obname(&p_buffer[current_byte_idx], avail_bytes < lrs_byte_remain ? avail_bytes : lrs_byte_remain, obname);
-    printf("... component object\n");
-    //print_obname(obname);
     if(obname_len <= 0) return -1;
     //parse object success
 
@@ -642,9 +640,15 @@ int parse_iflr_data(dlis_t* dlis) {
         if(state->parsing_iflr_values == NULL) {
             state->parsing_iflr_values = binn_list();
         }
+        int avail_bytes = 0;
+        int lrs_remain_bytes = 0;
+        int lrs_byte_cnt_tmp = state->lrs_byte_cnt;
         for(int i = state->parsing_value_cnt; i < state->parsing_dimension; i++){
             value_invalidate(&val);
-            len = parse_value(&p_buffer[current_byte_idx], dlis->max_byte_idx - current_byte_idx, state->parsing_repcode, &val);
+            avail_bytes = dlis->max_byte_idx - current_byte_idx;
+            lrs_remain_bytes = state->lrs_len - lrs_byte_cnt_tmp;
+            if(lrs_remain_bytes < avail_bytes) avail_bytes = lrs_remain_bytes;
+            len = parse_value(&p_buffer[current_byte_idx], avail_bytes, state->parsing_repcode, &val);
             if(len <= 0) {
                 break;
             }
@@ -658,6 +662,7 @@ int parse_iflr_data(dlis_t* dlis) {
             }
             state->parsing_value_cnt++;
             current_byte_idx += len;
+            lrs_byte_cnt_tmp += len;
         }
     }
     else {
@@ -799,8 +804,8 @@ int trailing_len(dlis_t *dlis) {
 void next_state(dlis_t* dlis){
     int lrs_trail_len = 0;
 	
-    printf("--next_state(): vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d\n", 
-		dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt);
+    //printf("--next_state(): vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d\n", 
+	//	dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt);
 
 
 	switch(dlis->parse_state.code){
@@ -828,7 +833,9 @@ void next_state(dlis_t* dlis){
                 }
 			}
 			else {
-                dlis->parse_state.code = EXPECTING_IFLR_HEADER;
+                if(lrs_attr_is_first_lrs(&dlis->parse_state))
+                    dlis->parse_state.code = EXPECTING_IFLR_HEADER;
+                else dlis->parse_state.code = EXPECTING_IFLR_DATA;
 			}
 			break;
         case EXPECTING_ENCRYPTION_PACKET:
@@ -1027,8 +1034,8 @@ void parse(dlis_t *dlis) {
 
     while (1) {
         // check if a lrs segment is in buffer. Get padding length right away and mark that it has length
-            printf("parse loop: parse_state.code:%s, max_byte_idx:%d, byte_idx:%d\n", 
-                PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx);
+            //printf("parse loop: parse_state.code:%s, max_byte_idx:%d, byte_idx:%d\n", 
+            //    PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx);
 
         switch(dlis->parse_state.code) {
             case EXPECTING_SUL:
@@ -1039,7 +1046,7 @@ void parse(dlis_t *dlis) {
 				next_state(dlis);
                 break;
             case EXPECTING_VR:
-                printf("==> vr index: %d\n", vr_cnt);
+                //printf("==> vr index: %d\n", vr_cnt);
                 vr_cnt++;
                 lrs_cnt = 0;
                 len = parse_vr_header(dlis, &vr_len, &vr_version);
@@ -1057,7 +1064,7 @@ void parse(dlis_t *dlis) {
 				next_state(dlis);
                 break;
             case EXPECTING_LRS:
-                printf("==> lrs index: %d\n", lrs_cnt);
+                //printf("==> lrs index: %d\n", lrs_cnt);
                 lrs_cnt++;
                 len = parse_lrs_header(dlis, &lrs_len, &lrs_attr, &lrs_type);
                 if(len < 0) goto end_loop;
@@ -1260,7 +1267,9 @@ void parse(dlis_t *dlis) {
                 } //temporary
                 */
                 len = parse_iflr_data(dlis);
-                if(len < 0) goto end_loop;
+                if(len < 0) {
+                    goto end_loop;
+                } 
                 //update status
 
                 dlis->byte_idx += len;
@@ -1271,9 +1280,20 @@ void parse(dlis_t *dlis) {
                     dlis->on_iflr_data_f(&dlis->parse_state);
                 }
                 else {
-                    goto end_loop;
+                    int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;
+                    int lrs_remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt;
+                    if(avail_bytes <= lrs_remain_bytes)
+                        goto end_loop;
+                    else {
+                        //save unparsed buff
+                        memmove(dlis->parse_state.unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx], lrs_remain_bytes);
+                        dlis->parse_state.unparsed_buff_len = lrs_remain_bytes;
+                        //skip unparsed buff
+                        dlis->byte_idx += lrs_remain_bytes;
+                        dlis->parse_state.lrs_byte_cnt += lrs_remain_bytes;
+                        dlis->parse_state.vr_byte_cnt += lrs_remain_bytes;
+                    }
                 }
-
                 next_state(dlis);
         }
         //usleep(500*1000);

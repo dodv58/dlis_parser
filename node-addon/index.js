@@ -162,7 +162,7 @@ function parse(fileName, onWellInfoCb, onDatasetInfoCb, onCurveInfo, onCurveData
     */
     function iflr_data(myObj) {
         fdata[parsingIndex].data = myObj.values;
-        console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
+        //console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
         parsingIndex++;
         parsingValueCnt = 0;
         return 25;

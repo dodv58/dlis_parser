@@ -315,7 +315,7 @@ int parse_ident(byte_t *buff, int buff_len, sized_str_t *output) {
     if ((buff_len-1) < (int)len) return -1; // Not enough data to parse
     output->buff = (buff + 1);
     output->len = len;
-    printf("... value: %.*s\n", len, output->buff);
+    //printf("... value: %.*s\n", len, output->buff);
     return len + 1;
 }
 
@@ -358,7 +358,7 @@ int parse_uvari(byte_t * buff, int buff_len, unsigned int* output){
 }
 
 int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
-    printf("--> parse value: repcode %d buff_len %d\n", repcode, buff_len);
+    //printf("--> parse value: repcode %d buff_len %d\n", repcode, buff_len);
     sized_str_t str;
     obname_t obname;
     objref_t objref;
@@ -372,7 +372,7 @@ int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
 	
 	output->repcode = repcode;
     if (buff_len < repcode_len) {
-        printf("--- parse_value buffer is not enough ---\n");
+        //printf("--- parse_value buffer is not enough ---\n");
         return -1;
     }
     switch(repcode) {
