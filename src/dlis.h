@@ -122,6 +122,9 @@ struct parse_state_s {
     int parsing_value_cnt;
     binn* parsing_iflr_values;
     //int iflr_index; //temporary
+
+    byte_t unparsed_buff[500];
+    int unparsed_buff_len;
 };
 typedef struct parse_state_s parse_state_t;
 

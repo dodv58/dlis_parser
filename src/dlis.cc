@@ -338,8 +338,17 @@ int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t
     // parse lrs type
     parse_ushort(&(p_buffer[current_byte_idx]), lrs_type);
     current_byte_idx++;
-
-    return current_byte_idx - dlis->byte_idx;
+    
+    if(dlis->parse_state.unparsed_buff_len > 0){
+        parse_state_t* state = &dlis->parse_state;
+        printf("=== %d\n", state->unparsed_buff_len);
+        *lrs_len += state->unparsed_buff_len;
+        state->vr_len += state->unparsed_buff_len;
+        memmove(&p_buffer[current_byte_idx - state->unparsed_buff_len], state->unparsed_buff, state->unparsed_buff_len);
+        dlis->byte_idx -= state->unparsed_buff_len;
+        dlis->parse_state.unparsed_buff_len = 0;
+    }
+    return LRS_HEADER_LEN;
 }
 
 int parse_lrs_encryption_packet(dlis_t *dlis) {
@@ -435,75 +444,69 @@ int parse_eflr_component_attrib(dlis_t *dlis, sized_str_t *label, long *count,
 		eflr_set_template_object_get(dlis, label, count, repcode, unit);
 	}
 */
-
+    parse_state_t* state = &dlis->parse_state;
 	int current_byte_idx = dlis->byte_idx;
-	//uint32_t count = 1;
-	//uint32_t repcode = 19;
 	int avail_bytes = 0;
+    int lrs_remain_bytes = 0;
+    int nbytes_read = 0;
 	byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
-	if (eflr_comp_attr_has_label(&dlis->parse_state)) {
+	if (eflr_comp_attr_has_label(state)) {
 		avail_bytes = dlis->max_byte_idx - current_byte_idx;
+        lrs_remain_bytes = state->lrs_len - state->lrs_byte_cnt;
+        if(lrs_remain_bytes < avail_bytes) avail_bytes = lrs_remain_bytes;
 		if (avail_bytes < 1) return -1;
 		int label_len = parse_ident(&(p_buffer[current_byte_idx]), avail_bytes, label);
 		if (label_len <= 0) {
 			return -1;
 		}
 		// parse label success
+        nbytes_read += label_len;
 		current_byte_idx += label_len;
 	}
-	else {
-		//label->len = 0;
-		//label->buff = 0;
-	}
+
 	if (eflr_comp_attr_has_count(&dlis->parse_state)) {
 		avail_bytes = dlis->max_byte_idx - current_byte_idx;
+        lrs_remain_bytes = state->lrs_len - state->lrs_byte_cnt - nbytes_read;
+        if(lrs_remain_bytes < avail_bytes) avail_bytes = lrs_remain_bytes;
 		if (avail_bytes < 1) return -1;
-		int count_len = parse_uvari(&(p_buffer[current_byte_idx]), dlis->max_byte_idx - current_byte_idx, (unsigned int *)count);
+		int count_len = parse_uvari(&(p_buffer[current_byte_idx]), avail_bytes, (unsigned int *)count);
 		if(count_len <= 0) {
 			return -1;
 		} 
 		// parse count success
+        nbytes_read += count_len;
 		current_byte_idx += count_len;
 	}
-	else {
-		//*count = -1;
-	}
-	if(eflr_comp_attr_has_repcode(&dlis->parse_state)){
+    if(eflr_comp_attr_has_repcode(&dlis->parse_state)){
 		avail_bytes = dlis->max_byte_idx - current_byte_idx;
+        lrs_remain_bytes = state->lrs_len - state->lrs_byte_cnt - nbytes_read;
+        if(lrs_remain_bytes < avail_bytes) avail_bytes = lrs_remain_bytes;
 		if (avail_bytes < 1) return -1;
 		parse_ushort(&p_buffer[current_byte_idx], (unsigned int *)repcode);
 		// parse repcode success
+        nbytes_read ++;
 		current_byte_idx += 1; 
 	}
-	else {
-		//*repcode = -1;
-	}
+
 	if(eflr_comp_attr_has_unit(&dlis->parse_state)){
 		avail_bytes = dlis->max_byte_idx - current_byte_idx;
+        lrs_remain_bytes = state->lrs_len - state->lrs_byte_cnt - nbytes_read;
+        if(lrs_remain_bytes < avail_bytes) avail_bytes = lrs_remain_bytes;
 		if (avail_bytes < 1) return -1;
-		int unit_len = parse_ident(&p_buffer[current_byte_idx], dlis->max_byte_idx - current_byte_idx, unit);
+		int unit_len = parse_ident(&p_buffer[current_byte_idx], avail_bytes, unit);
 		if(unit_len <= 0) {
 			//printf("not enough data to parse component units");
 			return -1;
 		}
 		// parse unit success
+        nbytes_read += unit_len;
 		current_byte_idx += unit_len;
-	}
-	else {
-		//unit->len = 0;
-		//unit->buff = 0;
 	}
 	/* -- 
         We do not read value here. We will read it outside of this function.
         We do not support the case where default value is specified in template object
        --
-    if(eflr_comp_attr_has_value(&dlis->parse_state)){
-		avail_bytes = dlis->max_byte_idx - current_byte_idx;
-		if (avail_bytes < 1) return -1;
-		int nbytes_read = parse_value(&p_buffer[current_byte_idx], avail_bytes, *repcode, val);
-        if(nbytes_read < 0) return -1;
-		current_byte_idx += nbytes_read;
-	}*/
+	*/
 
 	if (dlis->parse_state.templt_read_idx < 0) {
 		eflr_set_template_object_queue(dlis, label, *count, *repcode, unit);
@@ -515,21 +518,25 @@ int parse_eflr_component_attrib(dlis_t *dlis, sized_str_t *label, long *count,
 	return current_byte_idx - dlis->byte_idx;
 }
 int parse_eflr_component_attrib_value(dlis_t *dlis, value_t *val) {
-	int avail_bytes = 0;
+    parse_state_t* state = &dlis->parse_state;
     int current_byte_idx = dlis->byte_idx;
-    int repcode = dlis->parse_state.attrib_repcode;
+    int repcode = state->attrib_repcode;
 
 	byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
 
-	if(!eflr_comp_attr_has_value(&dlis->parse_state)) {
+	if(!eflr_comp_attr_has_value(state)) {
         fprintf(stderr, "Unexpected\n"); fflush(stderr);
         exit(-1);
     }
 
-    avail_bytes = dlis->max_byte_idx - current_byte_idx;
+    int avail_bytes = dlis->max_byte_idx - current_byte_idx;
+    int lrs_remain_bytes = state->lrs_len - state->lrs_byte_cnt - trailing_len(dlis);
+    if(lrs_remain_bytes < avail_bytes) avail_bytes = lrs_remain_bytes;
     if (avail_bytes < 1) return -1;
     int nbytes_read = parse_value(&p_buffer[current_byte_idx], avail_bytes, repcode, val);
-    if (nbytes_read < 0) return -1;
+    if (nbytes_read < 0) {
+        return -1;
+    }
     return nbytes_read;
 }
 int parse_eflr_component_invatr(dlis_t *dlis) {
@@ -542,10 +549,11 @@ int parse_eflr_component_object(dlis_t *dlis, obname_t* obname) {
     } 
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
     int current_byte_idx = dlis->byte_idx;
-
-    int obname_len = parse_obname(&p_buffer[current_byte_idx], dlis->max_byte_idx - current_byte_idx, obname);
+    int avail_bytes = dlis->max_byte_idx - current_byte_idx;
+    int lrs_byte_remain = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt;
+    int obname_len = parse_obname(&p_buffer[current_byte_idx], avail_bytes < lrs_byte_remain ? avail_bytes : lrs_byte_remain, obname);
     printf("... component object\n");
-    print_obname(obname);
+    //print_obname(obname);
     if(obname_len <= 0) return -1;
     //parse object success
 
@@ -875,6 +883,14 @@ void next_state(dlis_t* dlis){
 		case EXPECTING_EFLR_COMP_INVATR:
 		case EXPECTING_EFLR_COMP_ATTRIB:
             lrs_trail_len = trailing_len(dlis);
+            if (dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt <= lrs_trail_len) {
+                dlis->parse_state.code = EXPECTING_LRS_TRAILING;
+            }else if (eflr_comp_attr_has_value(&dlis->parse_state)) {
+                dlis->parse_state.code = EXPECTING_EFLR_COMP_ATTRIB_VALUE;
+            }else {
+                dlis->parse_state.code = EXPECTING_EFLR_COMP;
+            }
+            /*
             if (eflr_comp_attr_has_value(&dlis->parse_state)) {
                 dlis->parse_state.code = EXPECTING_EFLR_COMP_ATTRIB_VALUE;
             }
@@ -886,6 +902,7 @@ void next_state(dlis_t* dlis){
                     dlis->parse_state.code = EXPECTING_LRS_TRAILING;
                 }
             }
+            */
             break;
         case EXPECTING_LRS_TRAILING: 
 			if (dlis->parse_state.vr_len > dlis->parse_state.vr_byte_cnt){
@@ -1119,48 +1136,93 @@ void parse(dlis_t *dlis) {
                     eflr_set_template_object_get(dlis, &dlis->parse_state.attrib_label, &count, &repcode, &unit);
                 }
                 len = parse_eflr_component_attrib(dlis, &dlis->parse_state.attrib_label, &count, &repcode, &unit);
-                if(len < 0) goto end_loop;
+                if(len < 0){
+                    int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;
+                    int lrs_remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt - trailing_len(dlis);
+                    if(avail_bytes <= lrs_remain_bytes) 
+                        goto end_loop;
+                    else {
+                        //save unparsed buff
+                        memmove(dlis->parse_state.unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx - 1], lrs_remain_bytes + 1); //a byte for comp header
+                        dlis->parse_state.unparsed_buff_len = lrs_remain_bytes + 1;
+                        //skip unparsed buff
+                        dlis->byte_idx += lrs_remain_bytes;
+                        dlis->parse_state.lrs_byte_cnt += lrs_remain_bytes;
+                        dlis->parse_state.vr_byte_cnt += lrs_remain_bytes;
+                    }
+                }
+                else {
+                    // callback
+                    dlis->on_eflr_component_attrib_f(&dlis->parse_state, count, repcode, &unit );
 
-				// callback
-				dlis->on_eflr_component_attrib_f(&dlis->parse_state, count, repcode, &unit );
-
-                // update state
-                dlis->byte_idx += len;
-                dlis->parse_state.lrs_byte_cnt += len;
-                dlis->parse_state.vr_byte_cnt += len;
-                if (eflr_comp_attr_has_value(&dlis->parse_state)) {
-                    dlis->parse_state.attrib_value_cnt = count;
-                    dlis->parse_state.attrib_repcode = repcode;
+                    // update state
+                    dlis->byte_idx += len;
+                    dlis->parse_state.lrs_byte_cnt += len;
+                    dlis->parse_state.vr_byte_cnt += len;
+                    if (eflr_comp_attr_has_value(&dlis->parse_state)) {
+                        dlis->parse_state.attrib_value_cnt = count;
+                        dlis->parse_state.attrib_repcode = repcode;
+                    }
                 }
 				next_state(dlis);
                 break;
             case EXPECTING_EFLR_COMP_ATTRIB_VALUE:
                 value_invalidate(&val);
                 len = parse_eflr_component_attrib_value(dlis, &val);
-                if (len < 0) goto end_loop;
+                if (len < 0) {
+                    int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;
+                    int lrs_remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt - trailing_len(dlis);
+                    if(avail_bytes <= lrs_remain_bytes) 
+                        goto end_loop;
+                    else {
+                        //save unparsed buff
+                        memmove(dlis->parse_state.unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx], lrs_remain_bytes);
+                        dlis->parse_state.unparsed_buff_len = lrs_remain_bytes;
+                        //skip unparsed buff
+                        dlis->byte_idx += lrs_remain_bytes;
+                        dlis->parse_state.lrs_byte_cnt += lrs_remain_bytes;
+                        dlis->parse_state.vr_byte_cnt += lrs_remain_bytes;
+                    }
+                } else {
+                    // update state
+                    dlis->byte_idx += len;
+                    dlis->parse_state.lrs_byte_cnt += len;
+                    dlis->parse_state.vr_byte_cnt += len;
+                    dlis->parse_state.attrib_value_cnt--;
+                    // callback
+                    dlis->on_eflr_component_attrib_value_f(&dlis->parse_state, &dlis->parse_state.attrib_label, &val);
 
-                // update state
-                dlis->byte_idx += len;
-                dlis->parse_state.lrs_byte_cnt += len;
-                dlis->parse_state.vr_byte_cnt += len;
-                dlis->parse_state.attrib_value_cnt--;
-                // callback
-                dlis->on_eflr_component_attrib_value_f(&dlis->parse_state, &dlis->parse_state.attrib_label, &val);
-
+                }
                 next_state(dlis);
                 break;
             case EXPECTING_EFLR_COMP_OBJECT:
                 len = parse_eflr_component_object(dlis, &dlis->parse_state.parsing_obj);
-                if(len < 0) goto end_loop;
-				//start to read object's attributes
-				dlis->parse_state.templt_read_idx = 0;
+                if(len < 0) {
+                    int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;
+                    int lrs_remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt - trailing_len(dlis);
+                    if(avail_bytes <= lrs_remain_bytes) 
+                        goto end_loop;
+                    else {
+                        //save unparsed buff
+                        memmove(dlis->parse_state.unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx - 1], lrs_remain_bytes + 1); //a byte for comp header
+                        dlis->parse_state.unparsed_buff_len = lrs_remain_bytes + 1;
+                        //skip unparsed buff
+                        dlis->byte_idx += lrs_remain_bytes;
+                        dlis->parse_state.lrs_byte_cnt += lrs_remain_bytes;
+                        dlis->parse_state.vr_byte_cnt += lrs_remain_bytes;
+                    }
+                }
+                else {
+                    //start to read object's attributes
+                    dlis->parse_state.templt_read_idx = 0;
 
-				//callback
-				dlis->on_eflr_component_object_f(&dlis->parse_state, dlis->parse_state.parsing_obj);
-                // update status
-                dlis->byte_idx += len;
-                dlis->parse_state.lrs_byte_cnt += len;
-                dlis->parse_state.vr_byte_cnt += len;
+                    //callback
+                    dlis->on_eflr_component_object_f(&dlis->parse_state, dlis->parse_state.parsing_obj);
+                    // update status
+                    dlis->byte_idx += len;
+                    dlis->parse_state.lrs_byte_cnt += len;
+                    dlis->parse_state.vr_byte_cnt += len;
+                }
 				next_state(dlis);
                 break;
             case EXPECTING_LRS_TRAILING:

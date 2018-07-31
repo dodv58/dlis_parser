@@ -35,6 +35,7 @@ int REPCODE_SIZES[] = {
     0   // DLIS_UNITS_LEN   0    //V
 };
 
+
 byte_t *locate_free(value_t *value, int size) {
     return (value->u.raw + size);
 }
@@ -50,7 +51,12 @@ void pack_lstr(sized_str_t *lstr, value_t *v) {
 }
 void unpack_lstr(value_t *v, sized_str_t *lstr) {
 	lstr->len = v->u.lstr.len;
-	lstr->buff = v->u.lstr.buff;
+    if(lstr->buff == NULL) {
+        fprintf(stderr, "==> unpack_lstr destination buff null\n");
+        exit(-1);
+    }
+    memmove(lstr->buff, v->u.lstr.buff, lstr->len);
+	//lstr->buff = v->u.lstr.buff;
 }
 
 void pack_obname(obname_t *obname, value_t *v) {
@@ -352,6 +358,7 @@ int parse_uvari(byte_t * buff, int buff_len, unsigned int* output){
 }
 
 int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
+    printf("--> parse value: repcode %d buff_len %d\n", repcode, buff_len);
     sized_str_t str;
     obname_t obname;
     objref_t objref;
@@ -365,7 +372,7 @@ int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
 	
 	output->repcode = repcode;
     if (buff_len < repcode_len) {
-        //printf("--- parse_value buffer is not enough ---\n");
+        printf("--- parse_value buffer is not enough ---\n");
         return -1;
     }
     switch(repcode) {

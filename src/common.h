@@ -121,7 +121,6 @@ void pack_obname(obname_t *obname, value_t *v);
 void unpack_obname(value_t *v, obname_t *obname);
 void pack_objref(objref_t *objref, value_t *v);
 
-
 int parse_ushort(byte_t *data, unsigned int *out);
 int parse_unorm(byte_t *data, unsigned int *out);
 int parse_ulong(byte_t *data, unsigned int *out);
@@ -136,6 +135,7 @@ int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output);
 int parse_obname(byte_t *buff, int buff_len, obname_t* obname);
 int parse_objref(byte_t *buff, int buff_len, objref_t* objref);
 int parse_dtime(byte_t *buff, int buff_len, dtime_t *dtime);
+
 int parse_value(byte_t* buff, int buff_len, int rep_code, value_t* output);
 
 size_t trim(char *out, size_t len, const char *str);
