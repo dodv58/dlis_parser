@@ -86,7 +86,6 @@ function parse(fileName, onWellInfoCb, onDatasetInfoCb, onCurveInfo, onCurveData
 
     console.log("connect done");
 
-    //var temp = dlis.parse("../AP_1225in_MREX_E_MAIN.dlis");
     var temp = dlis.parse(fileName);
     function eflr_data(myObj) {
         //console.log(cnt++);
@@ -148,18 +147,6 @@ function parse(fileName, onWellInfoCb, onDatasetInfoCb, onCurveInfo, onCurveData
         console.log("___frame name: "+ obname2Str(myObj.frame_name) + " index: "+ myObj.fdata_index + " number of channels: " + parsingData.length);
         return 24;
     }
-    /*
-    function iflr_data(myObj) {
-        parsingValueCnt++;
-        fdata[parsingIndex].data.push(myObj.value);
-        if(parsingValueCnt >= parsingData[parsingIndex].dimension){
-            console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
-            parsingIndex++;
-            parsingValueCnt = 0;
-        }
-        return 25;
-    }
-    */
     function iflr_data(myObj) {
         fdata[parsingIndex].data = myObj.values;
         //console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);

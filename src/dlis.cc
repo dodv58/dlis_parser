@@ -674,6 +674,24 @@ int parse_iflr_data(dlis_t* dlis) {
     return current_byte_idx - dlis->byte_idx;
 }
 
+void lrs_skip_unparsed_buff(dlis_t* dlis){
+    int lrs_remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt - trailing_len(dlis);
+    parse_state_t* state = &dlis->parse_state;
+    if(state->code == EXPECTING_EFLR_COMP_ATTRIB_VALUE || state->code == EXPECTING_IFLR_DATA){
+        //save unparsed buff
+        memmove(state->unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx], lrs_remain_bytes); //a byte for comp header
+        state->unparsed_buff_len = lrs_remain_bytes;
+    }else {
+        //save unparsed buff
+        memmove(state->unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx - 1], lrs_remain_bytes + 1); //a byte for comp header
+        state->unparsed_buff_len = lrs_remain_bytes + 1;
+    }
+    //skip unparsed buff
+    dlis->byte_idx += lrs_remain_bytes;
+    state->lrs_byte_cnt += lrs_remain_bytes;
+    state->vr_byte_cnt += lrs_remain_bytes;
+}
+
 int lrs_attr_is_eflr(parse_state_t *state) {
     return state->lrs_attr & 0x80;
 }
@@ -1149,13 +1167,7 @@ void parse(dlis_t *dlis) {
                     if(avail_bytes <= lrs_remain_bytes) 
                         goto end_loop;
                     else {
-                        //save unparsed buff
-                        memmove(dlis->parse_state.unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx - 1], lrs_remain_bytes + 1); //a byte for comp header
-                        dlis->parse_state.unparsed_buff_len = lrs_remain_bytes + 1;
-                        //skip unparsed buff
-                        dlis->byte_idx += lrs_remain_bytes;
-                        dlis->parse_state.lrs_byte_cnt += lrs_remain_bytes;
-                        dlis->parse_state.vr_byte_cnt += lrs_remain_bytes;
+                        lrs_skip_unparsed_buff(dlis);
                     }
                 }
                 else {
@@ -1182,13 +1194,7 @@ void parse(dlis_t *dlis) {
                     if(avail_bytes <= lrs_remain_bytes) 
                         goto end_loop;
                     else {
-                        //save unparsed buff
-                        memmove(dlis->parse_state.unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx], lrs_remain_bytes);
-                        dlis->parse_state.unparsed_buff_len = lrs_remain_bytes;
-                        //skip unparsed buff
-                        dlis->byte_idx += lrs_remain_bytes;
-                        dlis->parse_state.lrs_byte_cnt += lrs_remain_bytes;
-                        dlis->parse_state.vr_byte_cnt += lrs_remain_bytes;
+                        lrs_skip_unparsed_buff(dlis);
                     }
                 } else {
                     // update state
@@ -1210,13 +1216,7 @@ void parse(dlis_t *dlis) {
                     if(avail_bytes <= lrs_remain_bytes) 
                         goto end_loop;
                     else {
-                        //save unparsed buff
-                        memmove(dlis->parse_state.unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx - 1], lrs_remain_bytes + 1); //a byte for comp header
-                        dlis->parse_state.unparsed_buff_len = lrs_remain_bytes + 1;
-                        //skip unparsed buff
-                        dlis->byte_idx += lrs_remain_bytes;
-                        dlis->parse_state.lrs_byte_cnt += lrs_remain_bytes;
-                        dlis->parse_state.vr_byte_cnt += lrs_remain_bytes;
+                        lrs_skip_unparsed_buff(dlis);
                     }
                 }
                 else {
@@ -1285,13 +1285,7 @@ void parse(dlis_t *dlis) {
                     if(avail_bytes <= lrs_remain_bytes)
                         goto end_loop;
                     else {
-                        //save unparsed buff
-                        memmove(dlis->parse_state.unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx], lrs_remain_bytes);
-                        dlis->parse_state.unparsed_buff_len = lrs_remain_bytes;
-                        //skip unparsed buff
-                        dlis->byte_idx += lrs_remain_bytes;
-                        dlis->parse_state.lrs_byte_cnt += lrs_remain_bytes;
-                        dlis->parse_state.vr_byte_cnt += lrs_remain_bytes;
+                        lrs_skip_unparsed_buff(dlis);
                     }
                 }
                 next_state(dlis);
@@ -1367,7 +1361,7 @@ void on_eflr_component_attrib(parse_state_t* state, long count, int repcode, siz
         jscall(_eflr_data_,(char*)binn_ptr(g_obj), binn_size(g_obj));
     }
     __binn_free(g_obj);
-    */    
+    */ 
     
     if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || strncmp(state->parsing_set_type, "CHANNEL", 7) == 0){
         if(!eflr_comp_attr_has_value(state) && eflr_set_template_is_last_attr(state)){
