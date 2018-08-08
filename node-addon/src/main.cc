@@ -21,13 +21,18 @@ void dlis_parse(const FunctionCallbackInfo<Value>& args) {
         fprintf(stderr, "create thread failed");
         exit(-1);
     };
-    //do_parse((char *)str.c_str());
+    //pthread_join(parsing_thread, NULL);
     args.GetReturnValue().Set(Nan::New(str.c_str()).ToLocalChecked());
+}
+
+void dlis_parse_segment(const FunctionCallbackInfo<Value>& args) {
+    
 }
 
 void init(Local<Object> exports) {
     initSocket();
-    NODE_SET_METHOD(exports, "parse", dlis_parse);
+    NODE_SET_METHOD(exports, "parseFile", dlis_parse);
+    //NODE_SET_METHOD(exports, "parseSegment", dlis_parse_segment);
 }
 
 NODE_MODULE(NODE_GYP_MODULE_NAME, init);

@@ -86,7 +86,7 @@ typedef enum lrs_eflr_type_e lrs_eflr_type_t;
 typedef enum lrs_structure_e lrs_structure_t;
 
 typedef enum parse_state_code_e parse_state_code_t;
-#define MAX_TEMPLT_OBJS 50
+#define MAX_TEMPLT_OBJS 100
 
 struct parse_state_s {
     parse_state_code_t code;

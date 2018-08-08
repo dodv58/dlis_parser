@@ -595,6 +595,7 @@ int jsprint(int f_idx, char *buff) {
     return jsprint_f(f_idx, buff);
 }
 void serialize_sized_str(binn* obj, char* key, sized_str_t* str){
+    printf("serialize_sized_str: len=%d, str=%.*s\n", str->len, str->len, str->buff);
     char _str[str->len + 1];
     memmove(_str, str->buff, str->len);
     _str[str->len] = '\0';
