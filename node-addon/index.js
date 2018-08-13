@@ -17,7 +17,6 @@ function initDlis(onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb) {
         onWellInfoCb, onDatasetInfoCb, onCurveInfoCb
     }
     socket.on("message", function(buffer) {
-        console.log("==================> js hello");
         let myObj = binn.decode(buffer);
         let retval;
         switch(myObj.functionIdx){
@@ -103,8 +102,8 @@ function parseFile(fileName, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCur
     var temp = DlisEngine.parser.parseFile(fileName);
 }
 function eflr_data(dlisInstance, myObj) {
-    console.log(cnt++);
-    console.log("===> " + myObj);
+    //console.log(cnt++);
+    //console.log("===> " + myObj);
     switch(myObj.sending_data_type) {
     case sendingDataType._SET:
         setType = myObj.type;

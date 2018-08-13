@@ -30,7 +30,6 @@ void dlis_parse_segment(const FunctionCallbackInfo<Value>& args) {
 }
 
 void init(Local<Object> exports) {
-    initSocket();
     NODE_SET_METHOD(exports, "parseFile", dlis_parse);
     //NODE_SET_METHOD(exports, "parseSegment", dlis_parse_segment);
 }

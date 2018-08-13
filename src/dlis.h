@@ -113,8 +113,8 @@ struct parse_state_s {
 
     char parsing_set_type[256];
     obname_t parsing_obj;
-    binn* parsing_obj_binn;
-    binn* parsing_obj_values;
+    binn* parsing_obj_binn; //current parsing eflr object
+    binn* parsing_obj_values; //the list of current object's values
 
     //data related to iflr data
     int parsing_repcode;
@@ -147,13 +147,16 @@ struct dlis_s {
     void (*on_visible_record_header_f)(int vr_idx, int vr_len, int version);
     void (*on_logical_record_begin_f)(int lrs_idx, int lrs_len, byte_t lrs_attr, int lrs_type);
     void (*on_logical_record_end_f)(int lr_idx);
-	void (*on_eflr_component_set_f)(sized_str_t *type, sized_str_t *type_len);
-	void (*on_eflr_component_object_f)(parse_state_t* state, obname_t obname);
-    void (*on_eflr_component_attrib_f)(parse_state_t* state, long count, int repcode, sized_str_t *unit);
-    void (*on_eflr_component_attrib_value_f)(parse_state_t* state, sized_str_t* label, value_t *val);
-    void (*on_iflr_header_f)(obname_t* name, uint32_t index);
+	void (*on_eflr_component_set_f)(struct dlis_s* dlis, sized_str_t *type, sized_str_t *type_len);
+	void (*on_eflr_component_object_f)(struct dlis_s* dlis, obname_t obname);
+    void (*on_eflr_component_attrib_f)(struct dlis_s* dlis, long count, int repcode, sized_str_t *unit);
+    void (*on_eflr_component_attrib_value_f)(struct dlis_s* dlis, sized_str_t* label, value_t *val);
+    void (*on_iflr_header_f)(struct dlis_s* dlis, obname_t* name, uint32_t index);
     void (*on_iflr_data_f) (parse_state_t* state);
     
+    
+    void *sender;
+    void *context;
 };
 typedef struct dlis_s dlis_t;
 
@@ -162,6 +165,8 @@ void dlis_init(dlis_t *dlis);
 void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count);
 
 void *do_parse(void *file_name_void);
-int jscall(char *buff, int len);
-void initSocket();
+//int jscall(char *buff, int len);
+//void initSocket();
+int jscall(dlis_t* dlis, char *buff, int len);
+void initSocket(dlis_t* dlis);
 #endif
