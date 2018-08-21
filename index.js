@@ -8,13 +8,14 @@ socket.bindSync('ipc:///tmp/dlis-socket');
 console.log("bind done");
 
 var dlis = require("./build/Release/dlis_parser");
-function initDlis(onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb) {
+function initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb) {
 //    var socket = zeromq.socket("rep");
     //var socket = zeromq.socket("pull");
     var instance = {
         parser: dlis,
         socket,
-        onWellInfoCb, onDatasetInfoCb, onCurveInfoCb
+        well: {},
+        userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb
     }
     socket.on("message", function(buffer) {
         let myObj = binn.decode(buffer);
@@ -97,8 +98,8 @@ function obname2Str(obj) {
     return obj.origin + "-" + obj.copy_number + "-" + obj.name;
 }
 
-function parseFile(fileName, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb) {
-    var DlisEngine = initDlis(onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb);
+function parseFile(fileName, userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb) {
+    var DlisEngine = initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb);
     var temp = DlisEngine.parser.parseFile(fileName);
 }
 function eflr_data(dlisInstance, myObj) {
@@ -126,6 +127,7 @@ function eflr_data(dlisInstance, myObj) {
             delete myObj["functionIdx"];
             currentSet[objName] = myObj;
             if(setType == "ORIGIN" && objName.indexOf("DEFINING_ORIGIN") != -1){
+                myObj.userInfo = dlisInstance.userInfo;
                 dlisInstance.onWellInfoCb(myObj);
             }
             else if(setType == "FRAME") {
