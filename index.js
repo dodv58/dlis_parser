@@ -189,7 +189,7 @@ function iflr_header(instance, myObj) {
 }
 function iflr_data(instance, myObj) {
     fdata[parsingIndex].data = myObj.values;
-    //console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
+    console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
     parsingIndex++;
     return 25;
 }
