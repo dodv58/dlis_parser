@@ -118,7 +118,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname);
 void on_eflr_component_attrib(dlis_t* dlis, long count, int repcode, sized_str_t *unit);
 void on_eflr_component_attrib_value(dlis_t* dlis, sized_str_t* label, value_t *val);
 void on_iflr_header(dlis_t* dlis, obname_t* name, uint32_t index);
-void on_iflr_data (parse_state_t* state);
+void on_iflr_data (dlis_t* dlis);
 
 char g_buff[1024];
 int g_idx = 0;
@@ -199,7 +199,23 @@ void on_iflr_header_default(obname_t* frame_name, uint32_t index) {
     __g_cend(len);
     app_print(_eflr_data_, g_buff);
 }
-
+void frame_init(frame_t* frame){
+    frame->origin = 0;
+    frame->copy_number = 0;
+    memset(frame->name, '\0', 100);
+    frame->channels = NULL;
+    frame->current_channel = NULL;
+    frame->next = NULL;
+}
+void channel_init(channel_t* channel){
+    channel->origin = 0;
+    channel->copy_number = 0;
+    channel->dimension = 1;
+    channel->repcode = 19;
+    memset(channel->name, '\0', 100);
+    channel->next = NULL;
+    channel->f_next = NULL;
+}
 void dlis_init(dlis_t *dlis) {
     printf("dlis init\n");
     initSocket(dlis);
@@ -234,6 +250,12 @@ void dlis_init(dlis_t *dlis) {
     dlis->on_eflr_component_attrib_value_f = &on_eflr_component_attrib_value;
     dlis->on_iflr_header_f = &on_iflr_header;
     dlis->on_iflr_data_f = &on_iflr_data;
+
+    //init frames
+    //frame_init(&dlis->frames);
+    dlis->current_frame = NULL;
+    //channel_init(&dlis->channels);
+    dlis->current_channel = NULL;
 }
 void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
     //printf("dlis_read: in_count:%d, byte_idx=%d, max_byte_idx:%d, buffer_idx=%d\n", in_count, dlis->byte_idx, dlis->max_byte_idx, dlis->buffer_idx);
@@ -618,9 +640,9 @@ int parse_iflr_data(dlis_t* dlis) {
     */
 
     if(dlis->parse_state.lrs_type != EOD){
-        int retval;
+        //int retval;
         if (state->parsing_dimension <= 0 || state->parsing_value_cnt >= state->parsing_dimension) {
-
+            /*
             binn* g_obj = binn_object();
             binn_object_set_int32(g_obj, (char *)"functionIdx", _get_repcode_);
             retval = jscall(dlis, (char*)binn_ptr(g_obj), binn_size(g_obj));
@@ -635,6 +657,18 @@ int parse_iflr_data(dlis_t* dlis) {
             else {
                 get_repcode_dimension(retval, &state->parsing_repcode, &state->parsing_dimension);
                 state->parsing_value_cnt = 0;
+            }
+            */
+            if(dlis->current_channel != NULL){
+                state->parsing_repcode = dlis->current_channel->repcode;
+                state->parsing_dimension = dlis->current_channel->dimension;
+                state->parsing_value_cnt = 0;
+                dlis->current_channel = dlis->current_channel->f_next;
+            }else {
+                state->parsing_repcode = -1;
+                state->parsing_dimension = -1;
+                state->parsing_value_cnt = -1;
+                return 0;
             }
         }
         //printf("---FDATA:--- repcode %d dimension %d cnt %d\n", state->parsing_repcode, state->parsing_dimension, state->parsing_value_cnt);
@@ -915,6 +949,38 @@ void on_eflr_component_set(dlis_t* dlis, sized_str_t *type, sized_str_t *name) {
 
 void on_eflr_component_object(dlis_t* dlis, obname_t obname){
     parse_state_t* state = &dlis->parse_state;
+    //save frame and channel data for parsing fdata
+    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0){
+        if(dlis->current_frame == NULL){
+            dlis->current_frame = &dlis->frames;
+        }else {
+            dlis->current_frame->next = (frame_t*) malloc(sizeof(frame_t));
+            dlis->current_frame = dlis->current_frame->next;
+        }
+        frame_init(dlis->current_frame);
+        dlis->current_frame->origin = obname.origin;
+        dlis->current_frame->copy_number = obname.copy_number;
+        memmove(dlis->current_frame->name, obname.name.buff, obname.name.len) ;
+        dlis->current_frame->name[obname.name.len] = '\0';
+        
+        //printf("origin: %d, copy_number %d, name %s\n", dlis->current_frame->origin, dlis->current_frame->copy_number, dlis->current_frame->name);
+    }
+     
+    if(strncmp(state->parsing_set_type, "CHANNEL", 7) == 0) {
+        if(dlis->current_channel == NULL){
+            dlis->current_channel = &dlis->channels;
+        }else {
+            dlis->current_channel->next = (channel_t*) malloc(sizeof(channel_t));
+            dlis->current_channel = dlis->current_channel->next;
+        }
+        channel_init(dlis->current_channel);
+        dlis->current_channel->origin = obname.origin;
+        dlis->current_channel->copy_number = obname.copy_number;
+        memmove(dlis->current_channel->name, obname.name.buff, obname.name.len);
+        dlis->current_channel->name[obname.name.len] = '\0';
+        //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
+    }
+    //sending data to js
     if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || 
         strncmp(state->parsing_set_type, "CHANNEL", 7) == 0 ||
         strncmp(state->parsing_set_type, "ORIGIN", 6) == 0){
@@ -945,6 +1011,35 @@ void on_eflr_component_attrib(dlis_t* dlis, long count, int repcode, sized_str_t
 
 void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *val) {
     parse_state_t* state = &dlis->parse_state;
+    //save frame and channel data for parsing fdata
+    if(strncmp(state->parsing_set_type, "CHANNEL", 7) == 0) {
+        if(strncmp((const char*)label->buff, "DIMENSION", 9) == 0) {
+            dlis->current_channel->dimension = val->u.uint_val;
+        }
+        if(strncmp((const char*)label->buff, "REPRESENTATION-CODE", 19) == 0) {
+            dlis->current_channel->repcode = val->u.uint_val;
+        }
+    }
+    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 ||
+        strncmp((const char*)label->buff, "CHANNELS", 8) == 0){
+        //find channel with obname (val) in channels list
+        channel_t* curr_channel = &dlis->channels;
+        while(curr_channel != NULL) {
+            if(curr_channel->origin == val->u.obname_val.origin &&
+                curr_channel->copy_number == val->u.obname_val.copy_number &&
+                strncmp(curr_channel->name, (const char*)val->u.obname_val.name.buff, val->u.obname_val.name.len) == 0){
+                    if(dlis->current_frame->channels == NULL){
+                        dlis->current_frame->channels = curr_channel;
+                    }else {
+                        dlis->current_frame->current_channel->f_next = curr_channel;
+                    }
+                    dlis->current_frame->current_channel = curr_channel;
+                    break;
+                }
+            curr_channel = curr_channel->next;
+        }
+    }
+    //send data to js
     if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || 
         strncmp(state->parsing_set_type, "CHANNEL", 7) == 0 ||
         strncmp(state->parsing_set_type, "ORIGIN", 6) == 0){
@@ -970,6 +1065,24 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
 }
 
 void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
+    dlis->current_frame = &dlis->frames;
+    while(dlis->current_frame != NULL){
+        if(dlis->current_frame->origin == frame_name->origin && 
+            dlis->current_frame->copy_number == frame_name->copy_number &&
+            strncmp(dlis->current_frame->name, (const char*)frame_name->name.buff, frame_name->name.len) == 0){
+            break;
+        }
+        dlis->current_frame = dlis->current_frame->next;
+    }
+    printf("current frame: origin %d copy number %d name %s\n", dlis->current_frame->origin, 
+                dlis->current_frame->copy_number, dlis->current_frame->name);
+    
+    dlis->current_channel = dlis->current_frame->channels;
+    /*
+    while(dlis->current_channel != NULL){
+        printf("origin %d copy number %d name %s repcode %d dimension %d\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name, dlis->current_channel->repcode, dlis->current_channel->dimension);
+        dlis->current_channel = dlis->current_channel->f_next;
+    }*/
     binn* g_obj = binn_object();
     serialize_obname(g_obj, (char *)"frame_name", frame_name);
     binn_object_set_int32(g_obj, (char *)"fdata_index", index);
@@ -979,17 +1092,15 @@ void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
 
     __binn_free(g_obj);
 }
-void on_iflr_data(parse_state_t* state){
+void on_iflr_data(dlis_t* dlis){
     //printf("-->on_iflr_data\n");
-    /*
+    parse_state_t* state = &dlis->parse_state;
     binn* obj = binn_object();
     binn_object_set_int32(obj, (char*)"functionIdx", _iflr_data_);
     binn_object_set_object(obj, (char*)"values", state->parsing_iflr_values);
-    //jscall((char*)binn_ptr(obj), binn_size(obj));
+    //jscall(dlis, (char*)binn_ptr(obj), binn_size(obj));
     __binn_free(state->parsing_iflr_values);
     __binn_free(obj);
-    */
-    __binn_free(state->parsing_iflr_values);
 }
 
 void dump(dlis_t *dlis) {
@@ -1464,7 +1575,7 @@ void parse(dlis_t *dlis) {
                 dlis->parse_state.vr_byte_cnt += len;
                 //callback
                 if(dlis->parse_state.parsing_value_cnt >= dlis->parse_state.parsing_dimension) {
-                    dlis->on_iflr_data_f(&dlis->parse_state);
+                    dlis->on_iflr_data_f(dlis);
                 }
                 else {
                     int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;

@@ -88,6 +88,26 @@ typedef enum lrs_structure_e lrs_structure_t;
 typedef enum parse_state_code_e parse_state_code_t;
 #define MAX_TEMPLT_OBJS 100
 
+typedef struct channel_s {
+    unsigned int origin;
+    unsigned int copy_number;
+    char name[100];
+    int dimension;
+    int repcode;
+    struct channel_s * next; //next channel in all channel list
+    struct channel_s * f_next; //next channel of a frame
+} channel_t;
+
+typedef struct frame_s {
+    unsigned int origin;
+    unsigned int copy_number;
+    char name[100];
+    channel_t* channels;
+    channel_t* current_channel;
+    struct frame_s* next;
+} frame_t;
+
+
 struct parse_state_s {
     parse_state_code_t code;
     
@@ -125,6 +145,7 @@ struct parse_state_s {
 
     byte_t unparsed_buff[500];
     int unparsed_buff_len;
+    
 };
 typedef struct parse_state_s parse_state_t;
 
@@ -152,11 +173,16 @@ struct dlis_s {
     void (*on_eflr_component_attrib_f)(struct dlis_s* dlis, long count, int repcode, sized_str_t *unit);
     void (*on_eflr_component_attrib_value_f)(struct dlis_s* dlis, sized_str_t* label, value_t *val);
     void (*on_iflr_header_f)(struct dlis_s* dlis, obname_t* name, uint32_t index);
-    void (*on_iflr_data_f) (parse_state_t* state);
+    void (*on_iflr_data_f) (struct dlis_s* dlis);
     
     
     void *sender;
     void *context;
+
+    frame_t frames;
+    frame_t* current_frame;
+    channel_t channels;
+    channel_t* current_channel;
 };
 typedef struct dlis_s dlis_t;
 
