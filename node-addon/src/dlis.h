@@ -152,7 +152,7 @@ struct dlis_s {
     void (*on_eflr_component_attrib_f)(struct dlis_s* dlis, long count, int repcode, sized_str_t *unit);
     void (*on_eflr_component_attrib_value_f)(struct dlis_s* dlis, sized_str_t* label, value_t *val);
     void (*on_iflr_header_f)(struct dlis_s* dlis, obname_t* name, uint32_t index);
-    void (*on_iflr_data_f) (parse_state_t* state);
+    void (*on_iflr_data_f) (struct dlis_s* dlis);
     
     
     void *sender;

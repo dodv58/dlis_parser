@@ -151,7 +151,7 @@ function get_repcode(){
         return binn.encode(obj);
     }else {
         let obj = binn.encode(parsingData[parsingIndex]);
-        parsingIndex++;
+        //parsingIndex++;
         return obj;
     }
 }
@@ -177,13 +177,13 @@ function iflr_header(instance, myObj) {
         fdata.push({name:channelName, data:[]});
     }
     parsingIndex = 0;
-    //console.log("___frame name: "+ obname2Str(myObj.frame_name) + " index: "+ myObj.fdata_index + " number of channels: " + parsingData.length);
+    console.log("___frame name: "+ obname2Str(myObj.frame_name) + " index: "+ myObj.fdata_index + " number of channels: " + parsingData.length);
     return 24;
 }
 function iflr_data(instance, myObj) {
     fdata[parsingIndex].data = myObj.values;
     //console.log(fdata[parsingIndex].name + ": " + fdata[parsingIndex].data);
-    //parsingIndex++;
+    parsingIndex++;
     return 25;
 }
 

@@ -118,7 +118,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname);
 void on_eflr_component_attrib(dlis_t* dlis, long count, int repcode, sized_str_t *unit);
 void on_eflr_component_attrib_value(dlis_t* dlis, sized_str_t* label, value_t *val);
 void on_iflr_header(dlis_t* dlis, obname_t* name, uint32_t index);
-void on_iflr_data (parse_state_t* state);
+void on_iflr_data (dlis_t* dlis);
 
 char g_buff[1024];
 int g_idx = 0;
@@ -979,17 +979,18 @@ void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
 
     __binn_free(g_obj);
 }
-void on_iflr_data(parse_state_t* state){
+void on_iflr_data(dlis_t* dlis){
     //printf("-->on_iflr_data\n");
-    /*
+    parse_state_t* state = &dlis->parse_state;
     binn* obj = binn_object();
     binn_object_set_int32(obj, (char*)"functionIdx", _iflr_data_);
     binn_object_set_object(obj, (char*)"values", state->parsing_iflr_values);
-    //jscall((char*)binn_ptr(obj), binn_size(obj));
+    jscall(dlis, (char*)binn_ptr(obj), binn_size(obj));
     __binn_free(state->parsing_iflr_values);
     __binn_free(obj);
-    */
+    /*
     __binn_free(state->parsing_iflr_values);
+    */
 }
 
 void dump(dlis_t *dlis) {
@@ -1464,7 +1465,7 @@ void parse(dlis_t *dlis) {
                 dlis->parse_state.vr_byte_cnt += len;
                 //callback
                 if(dlis->parse_state.parsing_value_cnt >= dlis->parse_state.parsing_dimension) {
-                    dlis->on_iflr_data_f(&dlis->parse_state);
+                    dlis->on_iflr_data_f(dlis);
                 }
                 else {
                     int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;
