@@ -219,6 +219,7 @@ void channel_init(channel_t* channel){
 void dlis_init(dlis_t *dlis) {
     printf("dlis init\n");
     initSocket(dlis);
+    dlis->timer_start = clock();
     dlis->buffer_idx = 0;
     dlis->byte_idx = 0;
     dlis->max_byte_idx = 0;
@@ -258,6 +259,13 @@ void dlis_init(dlis_t *dlis) {
     dlis->current_channel = NULL;
 }
 void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
+    time_t timer_current = clock();
+    if((timer_current - dlis->timer_start)/CLOCKS_PER_SEC >= 10){
+        fprintf(stderr, "pause!!!\n");
+        //usleep(2 * 1000*1000);
+        dlis->timer_start = clock();
+        fprintf(stderr, "resume!!!\n");
+    }
     //printf("dlis_read: in_count:%d, byte_idx=%d, max_byte_idx:%d, buffer_idx=%d\n", in_count, dlis->byte_idx, dlis->max_byte_idx, dlis->buffer_idx);
     int b_idx = dlis->buffer_idx;
     if (dlis->max_byte_idx + in_count >= DLIS_BUFF_SIZE) {
@@ -641,25 +649,7 @@ int parse_iflr_data(dlis_t* dlis) {
     */
 
     if(dlis->parse_state.lrs_type != EOD){
-        //int retval;
         if (state->parsing_dimension <= 0 || state->parsing_value_cnt >= state->parsing_dimension) {
-            /*
-            binn* g_obj = binn_object();
-            binn_object_set_int32(g_obj, (char *)"functionIdx", _get_repcode_);
-            retval = jscall(dlis, (char*)binn_ptr(g_obj), binn_size(g_obj));
-            __binn_free(g_obj);
-            
-            if (retval < 0) { // end of parsing frame data
-                state->parsing_repcode = -1;
-                state->parsing_dimension = -1;
-                state->parsing_value_cnt = -1;
-                return 0;
-            }
-            else {
-                get_repcode_dimension(retval, &state->parsing_repcode, &state->parsing_dimension);
-                state->parsing_value_cnt = 0;
-            }
-            */
             if(dlis->current_channel != NULL){
                 state->parsing_repcode = dlis->current_channel->repcode;
                 state->parsing_dimension = dlis->current_channel->dimension;
@@ -1018,17 +1008,19 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
         if(strncmp((const char*)label->buff, "DIMENSION", 9) == 0) {
             dlis->current_channel->dimension = val->u.uint_val;
         }
-        if(strncmp((const char*)label->buff, "REPRESENTATION-CODE", 19) == 0) {
+        else if(strncmp((const char*)label->buff, "REPRESENTATION-CODE", 19) == 0) {
             dlis->current_channel->repcode = val->u.uint_val;
         }
     }
-    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 ||
+    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 &&
         strncmp((const char*)label->buff, "CHANNELS", 8) == 0){
         //find channel with obname (val) in channels list
         channel_t* curr_channel = &dlis->channels;
+        //printf("-->(%d-%d-%.*s)\n", val->u.obname_val.origin, val->u.obname_val.copy_number, val->u.obname_val.name.len, val->u.obname_val.name.buff);
         while(curr_channel != NULL) {
             if(curr_channel->origin == val->u.obname_val.origin &&
                 curr_channel->copy_number == val->u.obname_val.copy_number &&
+                strlen(curr_channel->name) == val->u.obname_val.name.len &&
                 strncmp(curr_channel->name, (const char*)val->u.obname_val.name.buff, val->u.obname_val.name.len) == 0){
                     if(dlis->current_frame->channels == NULL){
                         dlis->current_frame->channels = curr_channel;
@@ -1068,6 +1060,8 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
 
 void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
     dlis->current_frame = &dlis->frames;
+    
+    dlis->current_channel = &dlis->channels;
     while(dlis->current_frame != NULL){
         if(dlis->current_frame->origin == frame_name->origin && 
             dlis->current_frame->copy_number == frame_name->copy_number &&
@@ -1076,15 +1070,16 @@ void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
         }
         dlis->current_frame = dlis->current_frame->next;
     }
-    printf("current frame: origin %d copy number %d name %s\n", dlis->current_frame->origin, 
-                dlis->current_frame->copy_number, dlis->current_frame->name);
+    if(dlis->current_frame == NULL){
+        printf("the frame (%d-%d-%.*s) does not exist!!!\n", frame_name->origin, frame_name->copy_number, 
+                                                            frame_name->name.len, frame_name->name.buff);
+        exit(-1);
+    }
+    //printf("current frame: origin %d copy number %d name %s\n", dlis->current_frame->origin, 
+    //            dlis->current_frame->copy_number, dlis->current_frame->name);
     
     dlis->current_channel = dlis->current_frame->channels;
-    /*
-    while(dlis->current_channel != NULL){
-        printf("origin %d copy number %d name %s repcode %d dimension %d\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name, dlis->current_channel->repcode, dlis->current_channel->dimension);
-        dlis->current_channel = dlis->current_channel->f_next;
-    }*/
+
     binn* g_obj = binn_object();
     serialize_obname(g_obj, (char *)"frame_name", frame_name);
     binn_object_set_int32(g_obj, (char *)"fdata_index", index);
@@ -1100,7 +1095,7 @@ void on_iflr_data(dlis_t* dlis){
     binn* obj = binn_object();
     binn_object_set_int32(obj, (char*)"functionIdx", _iflr_data_);
     binn_object_set_object(obj, (char*)"values", state->parsing_iflr_values);
-    //jscall(dlis, (char*)binn_ptr(obj), binn_size(obj));
+    jscall(dlis, (char*)binn_ptr(obj), binn_size(obj));
     __binn_free(state->parsing_iflr_values);
     __binn_free(obj);
 }
@@ -1166,10 +1161,10 @@ void get_repcode_dimension(int input, int *repcode, int *dimension) {
     *dimension = input & 0x0000FFFF; 
 }
 /*
-void initSocket(){
-    context = zmq_ctx_new();
-    sender = zmq_socket(context, ZMQ_PUSH);
-    int rc = zmq_bind(sender, ENDPOINT);
+void initSocket(dlis_t* dlis){
+    dlis->context = zmq_ctx_new();
+    dlis->sender = zmq_socket(dlis->context, ZMQ_PUSH);
+    int rc = zmq_bind(dlis->sender, ENDPOINT);
     if (rc < 0) {
         fprintf(stderr, "Error bind socket\n");
     }
