@@ -7,6 +7,11 @@ var socket = zeromq.socket("rep");
 socket.bindSync('ipc:///tmp/dlis-socket');
 console.log("bind done");
 
+/*
+var socket = zeromq.socket("pull");
+socket.connect('ipc:///tmp/dlis-socket');
+*/
+
 var dlis = require("./build/Release/dlis_parser");
 function initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb) {
 //    var socket = zeromq.socket("rep");
@@ -151,7 +156,7 @@ function get_repcode(){
         return binn.encode(obj);
     }else {
         let obj = binn.encode(parsingData[parsingIndex]);
-        parsingIndex++;
+        //parsingIndex++;
         return obj;
     }
 }
