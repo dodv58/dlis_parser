@@ -1024,6 +1024,10 @@ void *do_parse(void *file_name_void) {
         dlis_read(&dlis, buffer, byte_read);
     }
     printf("Finish reading file\n");
+    binn* obj = binn_object();
+    binn_object_set_int32(obj, (char*)"ended", 1);
+    jscall(&dlis, (char*)binn_ptr(obj), binn_size(obj));
+    __binn_free(obj);
     return NULL;
 }
 int jscall(dlis_t* dlis, char *buff, int len) {

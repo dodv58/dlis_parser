@@ -8,31 +8,35 @@ socket.bindSync('ipc:///tmp/dlis-socket');
 console.log("bind done");
 
 var dlis = require("./build/Release/dlis_parser");
-function initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb) {
+function initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd) {
 //    var socket = zeromq.socket("rep");
     //var socket = zeromq.socket("pull");
     var instance = {
         parser: dlis,
         socket,
         well: {},
-        userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb
+        userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd
     }
     socket.on("message", function(buffer) {
         let myObj = binn.decode(buffer);
         let retval;
-        switch(myObj.functionIdx){
-            case functionIdx.EFLR_DATA:
-                retval = eflr_data(instance, myObj);
-                break;
-            case functionIdx.GET_REPCODE:
-                retval = get_repcode();
-                break;
-            case functionIdx.IFLR_HEADER:
-                retval = iflr_header(instance, myObj);
-                break;
-            case functionIdx.IFLR_DATA:
-                retval = iflr_data(instance, myObj);
-                break;
+        if(myObj.ended){
+            onEnd(); 
+        } else {
+            switch(myObj.functionIdx){
+                case functionIdx.EFLR_DATA:
+                    retval = eflr_data(instance, myObj);
+                    break;
+                case functionIdx.GET_REPCODE:
+                    retval = get_repcode();
+                    break;
+                case functionIdx.IFLR_HEADER:
+                    retval = iflr_header(instance, myObj);
+                    break;
+                case functionIdx.IFLR_DATA:
+                    retval = iflr_data(instance, myObj);
+                    break;
+            }
         }
         socket.send(retval);
     });
@@ -98,8 +102,8 @@ function obname2Str(obj) {
     return obj.origin + "-" + obj.copy_number + "-" + obj.name;
 }
 
-function parseFile(fileName, userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb) {
-    var DlisEngine = initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb);
+function parseFile(fileName, userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd) {
+    var DlisEngine = initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd);
     let temp = DlisEngine.parser.parseFile(fileName);
     console.log("===================================> done");
 }
