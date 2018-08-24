@@ -1024,7 +1024,6 @@ void *do_parse(void *file_name_void) {
         dlis_read(&dlis, buffer, byte_read);
     }
     printf("Finish reading file\n");
-    exit(-1);
     return NULL;
 }
 int jscall(dlis_t* dlis, char *buff, int len) {

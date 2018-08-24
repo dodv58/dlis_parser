@@ -15,7 +15,7 @@ function initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurv
         parser: dlis,
         socket,
         well: {},
-        userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb
+        userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb
     }
     socket.on("message", function(buffer) {
         let myObj = binn.decode(buffer);
@@ -100,7 +100,8 @@ function obname2Str(obj) {
 
 function parseFile(fileName, userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb) {
     var DlisEngine = initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb);
-    var temp = DlisEngine.parser.parseFile(fileName);
+    let temp = DlisEngine.parser.parseFile(fileName);
+    console.log("===================================> done");
 }
 function eflr_data(dlisInstance, myObj) {
     //console.log(cnt++);
@@ -161,6 +162,9 @@ function iflr_header(instance, myObj) {
     //console.log("==>channel: " + JSON.stringify(channels, null, 2));
     //console.log("==>origin: " + JSON.stringify(dlisOrigin, null, 2));
     //process.exit(1);
+    if(fdata.length > 0){
+        instance.onCurveDataCb(fdata);
+    }
 
     var frameName = obname2Str(myObj.frame_name);
     //console.log("frame name: " + frameName);
@@ -177,7 +181,7 @@ function iflr_header(instance, myObj) {
         fdata.push({name:channelName, data:[]});
     }
     parsingIndex = 0;
-    console.log("___frame name: "+ obname2Str(myObj.frame_name) + " index: "+ myObj.fdata_index + " number of channels: " + parsingData.length);
+    //console.log("___frame name: "+ obname2Str(myObj.frame_name) + " index: "+ myObj.fdata_index + " number of channels: " + parsingData.length);
     return 24;
 }
 function iflr_data(instance, myObj) {
