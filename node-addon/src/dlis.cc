@@ -1133,18 +1133,9 @@ void *do_parse(void *file_name_void) {
 }
 int jscall(dlis_t* dlis, char *buff, int len) {
     //printf("==> jscall buff =%p len=%d\n",buff, len);
-    char buffer[200];
     zmq_send(dlis->sender, buff, len, 0);
-
     int nbytes = zmq_recv(dlis->sender, buffer, sizeof(buffer), 0);
-    buffer[nbytes] = '\0';
-    int repcode;
-    int dimension;
-    repcode = binn_object_int32(buffer, (char *) "repcode");
-    dimension = binn_object_int32(buffer, (char *) "dimension");
-    if (repcode < 0 || dimension < 0) return -1;
-
-    return repcode << 16 | dimension;
+    return 0;
 }
 void get_repcode_dimension(int input, int *repcode, int *dimension) {
     if (input == -1) {
