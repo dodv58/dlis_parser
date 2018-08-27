@@ -59,7 +59,7 @@ const functionIdx = {
     GET_REPCODE: 3,
 }
 
-let parsingIndex = 0;
+let parsingIndex = 0; //index of parsing channel in parsing frame
 let parsingData = [];
 let fdata = [];
 
@@ -105,7 +105,6 @@ function obname2Str(obj) {
 function parseFile(fileName, userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd) {
     var DlisEngine = initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd);
     let temp = DlisEngine.parser.parseFile(fileName);
-    console.log("===================================> done");
 }
 function eflr_data(dlisInstance, myObj) {
     //console.log(cnt++);

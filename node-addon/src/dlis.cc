@@ -565,6 +565,7 @@ int parse_iflr_header(dlis_t *dlis, obname_t* frame_name, uint32_t* frame_index)
 
     byte_t* p_buffer = dlis->buffer[dlis->buffer_idx];
     int current_byte_idx = dlis->byte_idx;
+    //printf("==> byte_idx %d, max_byte_idx %d", dlis->byte_idx, dlis->max_byte_idx);
     //hexDump((char*)"----iflr_header: \n", &p_buffer[current_byte_idx], 20);
     
     //iflr read frame obname
@@ -579,7 +580,7 @@ int parse_iflr_header(dlis_t *dlis, obname_t* frame_name, uint32_t* frame_index)
         nbytes = parse_ushort(&p_buffer[current_byte_idx], &lr_type);
         if(nbytes < 0) return -1;
         current_byte_idx += nbytes;
-        printf("---FRAME HEADER len: %d", current_byte_idx - dlis->byte_idx );
+        //printf("---FRAME HEADER len: %d", current_byte_idx - dlis->byte_idx );
     }else {
         //iflr read frame index
         nbytes = parse_uvari(&p_buffer[current_byte_idx], dlis->max_byte_idx - current_byte_idx, frame_index);
@@ -888,6 +889,7 @@ void on_sul(int seq, char *version, char *structure, int max_rec_len, char *ssi)
 }
 
 void on_visible_record_header(int vr_idx, int vr_len, int version) {
+    //printf("==> VR index %d vr_len %d \n", vr_idx, vr_len);
 }
 
 void on_logical_record_begin(int lrs_idx, int lrs_len, byte_t lrs_attr, int lrs_type) {
@@ -1286,6 +1288,7 @@ void parse(dlis_t *dlis) {
                 }
 
                 // update state
+                //printf("==> LR index %d, LRS index %d\n", dlis->lr_idx, dlis->lrs_idx);
                 dlis->lrs_idx++;
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_len = lrs_len;

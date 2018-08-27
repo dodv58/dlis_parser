@@ -320,7 +320,7 @@ int parse_ident(byte_t *buff, int buff_len, sized_str_t *output) {
 }
 
 int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output){ 
-    if (output == NULL || buff == NULL) {
+    if (output == NULL || buff == NULL || buff_len <= 1) {
         return -1;
     }
     unsigned int len = 0;
@@ -333,7 +333,7 @@ int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output){
 
 int parse_uvari(byte_t * buff, int buff_len, unsigned int* output){
     int len = 0;
-    if(output == NULL || buff == NULL){
+    if(output == NULL || buff == NULL || buff_len <= 0){
         return -1;
     }
     if(!((*buff) & 0x80)) {
@@ -371,7 +371,7 @@ int parse_value(byte_t* buff, int buff_len, int repcode, value_t *output){
     repcode_len = REPCODE_SIZES[repcode];
 	
 	output->repcode = repcode;
-    if (buff_len < repcode_len) {
+    if (buff_len <= 0 || buff_len < repcode_len) {
         //printf("--- parse_value buffer is not enough ---\n");
         return -1;
     }
