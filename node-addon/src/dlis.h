@@ -121,6 +121,7 @@ struct parse_state_s {
     int lrs_byte_cnt;
     byte_t lrs_attr;
     int lrs_type;
+    int lrs_trail_len;
 
     // data related to eflr component
     byte_t eflr_comp_first_byte;
@@ -152,7 +153,6 @@ typedef struct parse_state_s parse_state_t;
 #define DLIS_BUFF_SIZE (64*1024)
 #define DLIS_BUFF_NUM 4
 struct dlis_s {
-    time_t timer_start;
     int buffer_idx;
     int byte_idx;
     int max_byte_idx;

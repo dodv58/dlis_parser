@@ -189,7 +189,7 @@ function iflr_header(instance, myObj) {
         fdata.push({name:channelName, data:[]});
     }
     parsingIndex = 0;
-    //console.log("___frame name: "+ obname2Str(myObj.frame_name) + " index: "+ myObj.fdata_index + " number of channels: " + parsingData.length);
+    console.log("___frame name: "+ obname2Str(myObj.frame_name) + " index: "+ myObj.fdata_index + " number of channels: " + parsingData.length);
     return 24;
 }
 function iflr_data(instance, myObj) {

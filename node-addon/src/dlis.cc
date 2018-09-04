@@ -219,7 +219,6 @@ void channel_init(channel_t* channel){
 void dlis_init(dlis_t *dlis) {
     printf("dlis init\n");
     initSocket(dlis);
-    dlis->timer_start = clock();
     dlis->buffer_idx = 0;
     dlis->byte_idx = 0;
     dlis->max_byte_idx = 0;
@@ -259,13 +258,6 @@ void dlis_init(dlis_t *dlis) {
     dlis->current_channel = NULL;
 }
 void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
-    time_t timer_current = clock();
-    if((timer_current - dlis->timer_start)/CLOCKS_PER_SEC >= 10){
-        fprintf(stderr, "pause!!!\n");
-        //usleep(2 * 1000*1000);
-        dlis->timer_start = clock();
-        fprintf(stderr, "resume!!!\n");
-    }
     //printf("dlis_read: in_count:%d, byte_idx=%d, max_byte_idx:%d, buffer_idx=%d\n", in_count, dlis->byte_idx, dlis->max_byte_idx, dlis->buffer_idx);
     int b_idx = dlis->buffer_idx;
     if (dlis->max_byte_idx + in_count >= DLIS_BUFF_SIZE) {
@@ -647,7 +639,7 @@ int parse_iflr_data(dlis_t* dlis) {
         return current_byte_idx - dlis->byte_idx;
     }
     */
-
+    //printf("==> lrs_len %d lrs_byte_cnt %d\n", dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt);
     if(dlis->parse_state.lrs_type != EOD){
         if (state->parsing_dimension <= 0 || state->parsing_value_cnt >= state->parsing_dimension) {
             if(dlis->current_channel != NULL){
@@ -836,16 +828,24 @@ int padding_len(dlis_t *dlis) {
 }
 
 int trailing_len(dlis_t *dlis) {
-    int lrs_trail_len = 0;
-    int padding_bytes = 0;
-    if(lrs_attr_has_checksum(&dlis->parse_state)) 
-        lrs_trail_len += 2;
-    if(lrs_attr_has_trailing(&dlis->parse_state)) 
-        lrs_trail_len += 2;
-    if(lrs_attr_has_padding(&dlis->parse_state)) {
-        padding_bytes = padding_len(dlis);
+    if(dlis->parse_state.lrs_trail_len >= 0){
+        return dlis->parse_state.lrs_trail_len;
+    }else {
+        int lrs_trail_len = 0;
+        int padding_bytes = 0;
+        if(lrs_attr_has_checksum(&dlis->parse_state)) 
+            lrs_trail_len += 2;
+        if(lrs_attr_has_trailing(&dlis->parse_state)) 
+            lrs_trail_len += 2;
+        if(lrs_attr_has_padding(&dlis->parse_state)) {
+            padding_bytes = padding_len(dlis);
+            if(padding_bytes <= 0){
+                return -1;
+            }
+        }
+        dlis->parse_state.lrs_trail_len = lrs_trail_len + padding_bytes;
+        return dlis->parse_state.lrs_trail_len;
     }
-    return lrs_trail_len + padding_bytes;
 }
 
 
@@ -1291,8 +1291,9 @@ void next_state(dlis_t* dlis){
             dlis->parse_state.code = EXPECTING_IFLR_DATA;
             break;
         case EXPECTING_IFLR_DATA: {
-            //printf("... lrs_len %d lrs_byte_cnt %d trail_len %d \n", dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, lrs_trail_len);
             lrs_trail_len = trailing_len(dlis);
+            printf("... max_byte_idx %d byte_idx %d lrs_len %d lrs_byte_cnt %d trail_len %d \n", 
+                dlis->max_byte_idx, dlis->byte_idx, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, lrs_trail_len);
             int remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt;
             if ( remain_bytes <= lrs_trail_len || dlis->parse_state.parsing_dimension <= 0) {
                 if(remain_bytes > lrs_trail_len){
@@ -1393,6 +1394,8 @@ void parse(dlis_t *dlis) {
                 dlis->parse_state.vr_byte_cnt += len;
                 dlis->parse_state.lrs_attr = lrs_attr;
                 dlis->parse_state.lrs_type = lrs_type;
+                dlis->parse_state.lrs_trail_len = -1;
+                dlis->parse_state.lrs_trail_len = trailing_len(dlis);
 				next_state(dlis);
                 break;
             case EXPECTING_ENCRYPTION_PACKET:
