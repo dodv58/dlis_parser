@@ -1,1 +1,11 @@
 npm install -g node-gyp
+
+git clone https://github.com/liteserver/binn
+cd binn
+make
+sudo make install
+
+https://github.com/zeromq/libzmq/releases/download/v4.2.5/zeromq-4.2.5.tar.gz
+./configure --prefix=/usr
+make
+sudo make install
