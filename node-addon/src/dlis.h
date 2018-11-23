@@ -154,6 +154,7 @@ typedef struct parse_state_s parse_state_t;
 #define DLIS_BUFF_SIZE (64*1024)
 #define DLIS_BUFF_NUM 4
 struct dlis_s {
+    time_t timer_start;
     int buffer_idx;
     int byte_idx;
     int max_byte_idx;

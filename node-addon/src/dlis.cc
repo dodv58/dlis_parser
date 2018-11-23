@@ -219,6 +219,7 @@ void channel_init(channel_t* channel){
 void dlis_init(dlis_t *dlis) {
     printf("dlis init\n");
     initSocket(dlis);
+    dlis->timer_start = clock();
     dlis->buffer_idx = 0;
     dlis->byte_idx = 0;
     dlis->max_byte_idx = 0;
@@ -258,6 +259,13 @@ void dlis_init(dlis_t *dlis) {
     dlis->current_channel = NULL;
 }
 void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
+    time_t timer_current = clock();
+    if((timer_current - dlis->timer_start)/CLOCKS_PER_SEC >= 10){
+        fprintf(stderr, "pause!!!\n");
+        //usleep(2 * 1000*1000);
+        dlis->timer_start = clock();
+        fprintf(stderr, "resume!!!\n");
+    }
     //printf("dlis_read: in_count:%d, byte_idx=%d, max_byte_idx:%d, buffer_idx=%d\n", in_count, dlis->byte_idx, dlis->max_byte_idx, dlis->buffer_idx);
     int b_idx = dlis->buffer_idx;
     if (dlis->max_byte_idx + in_count >= DLIS_BUFF_SIZE) {
