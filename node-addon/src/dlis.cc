@@ -654,7 +654,6 @@ int parse_iflr_data(dlis_t* dlis) {
                 state->parsing_repcode = dlis->current_channel->repcode;
                 state->parsing_dimension = dlis->current_channel->dimension;
                 state->parsing_value_cnt = 0;
-                dlis->current_channel = dlis->current_channel->f_next;
             }else {
                 state->parsing_repcode = -1;
                 state->parsing_dimension = -1;
@@ -979,9 +978,10 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         memmove(dlis->current_channel->name, obname.name.buff, obname.name.len);
         dlis->current_channel->name[obname.name.len] = '\0';
 
-		char filename[obname.name.len + 5];
-        memmove(&filename, obname.name.buff, obname.name.len);
-        memmove(&filename[obname.name.len], ".txt\0", 5);
+		char filename[obname.name.len + 5 + strlen(DATA_DIR)];
+        memmove(&filename, DATA_DIR, strlen(DATA_DIR));
+        memmove(&filename[strlen(DATA_DIR)], obname.name.buff, obname.name.len);
+        memmove(&filename[strlen(DATA_DIR) + obname.name.len], ".txt\0", 5);
 		dlis->current_channel->fp = fopen(filename, "w+");	
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
@@ -1108,10 +1108,36 @@ void on_iflr_data(dlis_t* dlis){
     binn* obj = binn_object();
     binn_object_set_int32(obj, (char*)"functionIdx", _iflr_data_);
     binn_object_set_object(obj, (char*)"values", state->parsing_iflr_values);
+    
     //jscall(dlis, (char*)binn_ptr(obj), binn_size(obj));
-
+    //write to file
+    binn item;
+    binn_iter iter;
+    binn_list_foreach(state->parsing_iflr_values, item) {
+        write_to_curve_file(dlis->current_channel->fp, &item);
+    }
     __binn_free(state->parsing_iflr_values);
     __binn_free(obj);
+}
+
+void write_to_curve_file(FILE* file, binn* obj){
+    switch(binn_type(obj)){
+        case BINN_DOUBLE:
+            fprintf(file, "value: %f\n", *((double *)binn_ptr(obj))); 
+            break;
+        case BINN_INT32:
+            fprintf(file, "value: %d\n", *((int32_t*)binn_ptr(obj)));
+            break;
+        case BINN_UINT32:
+            fprintf(file, "value: %d\n", *((uint32_t*)binn_ptr(obj)));
+            break;
+        case BINN_STRING:
+            printf("value is string\n");
+            break;
+        case BINN_OBJECT:
+            printf("value is object\n");
+            break;
+    }
 }
 
 void dump(dlis_t *dlis) {
@@ -1145,6 +1171,11 @@ void *do_parse(void *file_name_void) {
         dlis_read(&dlis, buffer, byte_read);
     }
     printf("Finish reading file\n");
+    channel_t * iter = &dlis.channels;
+    while(iter != NULL){
+        fclose(iter->fp);
+        iter = iter->next;
+    }
     binn* obj = binn_object();
     binn_object_set_int32(obj, (char*)"ended", 1);
     jscall(&dlis, (char*)binn_ptr(obj), binn_size(obj));
@@ -1310,8 +1341,8 @@ void next_state(dlis_t* dlis){
             break;
         case EXPECTING_IFLR_DATA: {
             lrs_trail_len = trailing_len(dlis);
-            printf("... max_byte_idx %d byte_idx %d lrs_len %d lrs_byte_cnt %d trail_len %d \n", 
-                dlis->max_byte_idx, dlis->byte_idx, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, lrs_trail_len);
+            //printf("... max_byte_idx %d byte_idx %d lrs_len %d lrs_byte_cnt %d trail_len %d \n", 
+            //    dlis->max_byte_idx, dlis->byte_idx, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, lrs_trail_len);
             int remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt;
             if ( remain_bytes <= lrs_trail_len || dlis->parse_state.parsing_dimension <= 0) {
                 if(remain_bytes > lrs_trail_len){
@@ -1590,6 +1621,9 @@ void parse(dlis_t *dlis) {
                 //callback
                 if(dlis->parse_state.parsing_value_cnt >= dlis->parse_state.parsing_dimension) {
                     dlis->on_iflr_data_f(dlis);
+                    if(dlis->current_channel != NULL){
+                        dlis->current_channel = dlis->current_channel->f_next;
+                    }
                 }
                 else {
                     int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;

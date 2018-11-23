@@ -7,6 +7,7 @@
 
 
 #define ENDPOINT "ipc:///tmp/dlis-socket"
+#define DATA_DIR "data/"
 
 enum lrs_iflr_type_e {
     FDATA = 0,
@@ -198,4 +199,5 @@ void *do_parse(void *file_name_void);
 //void initSocket();
 int jscall(dlis_t* dlis, char *buff, int len);
 void initSocket(dlis_t* dlis);
+void write_to_curve_file(FILE* file, binn* obj);
 #endif
