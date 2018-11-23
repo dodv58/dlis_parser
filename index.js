@@ -19,7 +19,6 @@ function initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurv
     var instance = {
         parser: dlis,
         socket,
-        well: {},
         userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd
     }
     socket.on("message", function(buffer) {

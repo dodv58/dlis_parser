@@ -970,6 +970,11 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         dlis->current_channel->copy_number = obname.copy_number;
         memmove(dlis->current_channel->name, obname.name.buff, obname.name.len);
         dlis->current_channel->name[obname.name.len] = '\0';
+
+		char filename[obname.name.len + 5];
+        memmove(&filename, obname.name.buff, obname.name.len);
+        memmove(&filename[obname.name.len], ".txt\0", 5);
+		dlis->current_channel->fp = fopen(filename, "w+");	
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
     //sending data to js
@@ -1095,7 +1100,8 @@ void on_iflr_data(dlis_t* dlis){
     binn* obj = binn_object();
     binn_object_set_int32(obj, (char*)"functionIdx", _iflr_data_);
     binn_object_set_object(obj, (char*)"values", state->parsing_iflr_values);
-    jscall(dlis, (char*)binn_ptr(obj), binn_size(obj));
+    //jscall(dlis, (char*)binn_ptr(obj), binn_size(obj));
+
     __binn_free(state->parsing_iflr_values);
     __binn_free(obj);
 }
@@ -1171,6 +1177,10 @@ void initSocket(dlis_t* dlis){
         fprintf(stderr, "Error connecting socket\n");
     }
     fprintf(stderr, "connect done %d\n", rc);
+}
+
+void get_filename(channel_t channel){
+
 }
 
 void next_state(dlis_t* dlis){

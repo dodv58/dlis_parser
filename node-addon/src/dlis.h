@@ -94,6 +94,7 @@ typedef struct channel_s {
     char name[100];
     int dimension;
     int repcode;
+	FILE *fp;
     struct channel_s * next; //next channel in all channel list
     struct channel_s * f_next; //next channel of a frame
 } channel_t;
