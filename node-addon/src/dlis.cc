@@ -985,6 +985,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         //printf("origin: %d, copy_number %d, name %s\n", dlis->current_frame->origin, dlis->current_frame->copy_number, dlis->current_frame->name);
     }
      
+    char filename[obname.name.len + 5 + strlen(DATA_DIR)];
     if(strncmp(state->parsing_set_type, "CHANNEL", 7) == 0) {
         if(dlis->current_channel == NULL){
             dlis->current_channel = &dlis->channels;
@@ -998,7 +999,6 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         memmove(dlis->current_channel->name, obname.name.buff, obname.name.len);
         dlis->current_channel->name[obname.name.len] = '\0';
 
-		char filename[obname.name.len + 5 + strlen(DATA_DIR)];
         memmove(&filename, DATA_DIR, strlen(DATA_DIR));
         memmove(&filename[strlen(DATA_DIR)], obname.name.buff, obname.name.len);
         memmove(&filename[strlen(DATA_DIR) + obname.name.len], ".txt\0", 5);
@@ -1019,6 +1019,9 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         binn_object_set_int32(state->parsing_obj_binn, (char*)"copy_number", obname.copy_number);
         serialize_sized_str(state->parsing_obj_binn, (char*)"name", &obname.name);
         binn_object_set_int32(state->parsing_obj_binn, (char *)"functionIdx", _eflr_data_);
+        if(strncmp(state->parsing_set_type, "CHANNEL", strlen(state->parsing_set_type)) == 0){
+            binn_object_set_str(state->parsing_obj_binn, (char*) "path", filename);
+        }
     }
 }
 
