@@ -90,6 +90,7 @@ typedef enum parse_state_code_e parse_state_code_t;
 #define MAX_TEMPLT_OBJS 100
 
 typedef struct channel_s {
+    int index;// index of channel in frame
     unsigned int origin;
     unsigned int copy_number;
     char name[100];
@@ -103,6 +104,7 @@ typedef struct channel_s {
 typedef struct frame_s {
     unsigned int origin;
     unsigned int copy_number;
+    bool index_type; // false: using frame index, true: using first channel 
     char name[100];
     channel_t* channels;
     channel_t* current_channel;
@@ -144,7 +146,7 @@ struct parse_state_s {
     int parsing_dimension;
     int parsing_value_cnt;
     binn* parsing_iflr_values;
-    //int iflr_index; //temporary
+    double parsing_frame_index; 
 
     byte_t unparsed_buff[500];
     int unparsed_buff_len;
@@ -199,5 +201,5 @@ void *do_parse(void *file_name_void);
 //void initSocket();
 int jscall(dlis_t* dlis, char *buff, int len);
 void initSocket(dlis_t* dlis);
-void write_to_curve_file(FILE* file, binn* obj);
+void write_to_curve_file(FILE* file, double index, binn* obj);
 #endif

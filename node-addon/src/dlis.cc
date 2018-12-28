@@ -202,12 +202,14 @@ void on_iflr_header_default(obname_t* frame_name, uint32_t index) {
 void frame_init(frame_t* frame){
     frame->origin = 0;
     frame->copy_number = 0;
+    frame->index_type = false;
     memset(frame->name, '\0', 100);
     frame->channels = NULL;
     frame->current_channel = NULL;
     frame->next = NULL;
 }
 void channel_init(channel_t* channel){
+    channel->index = 0;
     channel->origin = 0;
     channel->copy_number = 0;
     channel->dimension = 1;
@@ -540,6 +542,15 @@ int parse_eflr_component_attrib(dlis_t *dlis, sized_str_t *label, long *count,
         We do not support the case where default value is specified in template object
        --
 	*/
+    
+    //update frame index type
+    //check INDEX-TYPE attribute of frame object
+    if(strncmp((const char*)state->parsing_set_type, (const char*)"FRAME", strlen(state->parsing_set_type)) == 0 &&
+        strncmp((const char*)label->buff, (const char*)"INDEX-TYPE", label->len) == 0 &&
+        dlis->parse_state.templt_read_idx >= 0 &&  // check if we are parsing template or object
+        !eflr_comp_is_absatr(state)){
+        dlis->current_frame->index_type = true; 
+    }
 
 	if (dlis->parse_state.templt_read_idx < 0) {
 		eflr_set_template_object_queue(dlis, label, *count, *repcode, unit);
@@ -592,7 +603,7 @@ int parse_eflr_component_object(dlis_t *dlis, obname_t* obname) {
 }
 
 int parse_iflr_header(dlis_t *dlis, obname_t* frame_name, uint32_t* frame_index) {
-
+    //printf("parse_iflr_header!!!\n");
     byte_t* p_buffer = dlis->buffer[dlis->buffer_idx];
     int current_byte_idx = dlis->byte_idx;
     //printf("==> byte_idx %d, max_byte_idx %d", dlis->byte_idx, dlis->max_byte_idx);
@@ -679,6 +690,13 @@ int parse_iflr_data(dlis_t* dlis) {
             if(len <= 0) {
                 break;
             }
+
+            // saving first channel as frame index
+            if(dlis->current_channel->index == 1 &&
+                dlis->current_frame->index_type){
+                state->parsing_frame_index = get_scalar_value(&val);
+            }
+
             if(state->parsing_dimension > 1) {
             /*
             TODO: array variable
@@ -687,6 +705,8 @@ int parse_iflr_data(dlis_t* dlis) {
             } else {
                 serialize_list_add(state->parsing_iflr_values, &val);
             }
+
+
             state->parsing_value_cnt++;
             current_byte_idx += len;
             lrs_byte_cnt_tmp += len;
@@ -1037,7 +1057,9 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
                 strncmp(curr_channel->name, (const char*)val->u.obname_val.name.buff, val->u.obname_val.name.len) == 0){
                     if(dlis->current_frame->channels == NULL){
                         dlis->current_frame->channels = curr_channel;
+                        dlis->current_frame->channels->index = 1; // set first channel in frame
                     }else {
+                        curr_channel->index = dlis->current_frame->current_channel->index + 1;
                         dlis->current_frame->current_channel->f_next = curr_channel;
                     }
                     dlis->current_frame->current_channel = curr_channel;
@@ -1053,7 +1075,6 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
         if(state->parsing_obj_values == NULL){
             state->parsing_obj_values = binn_list();
         }
-
         serialize_list_add(state->parsing_obj_values, val);
 
         if(state->attrib_value_cnt <= 0) {
@@ -1114,22 +1135,22 @@ void on_iflr_data(dlis_t* dlis){
     binn item;
     binn_iter iter;
     binn_list_foreach(state->parsing_iflr_values, item) {
-        write_to_curve_file(dlis->current_channel->fp, &item);
+        write_to_curve_file(dlis->current_channel->fp, state->parsing_frame_index, &item);
     }
     __binn_free(state->parsing_iflr_values);
     __binn_free(obj);
 }
 
-void write_to_curve_file(FILE* file, binn* obj){
+void write_to_curve_file(FILE* file, double index, binn* obj){
     switch(binn_type(obj)){
         case BINN_DOUBLE:
-            fprintf(file, "value: %f\n", *((double *)binn_ptr(obj))); 
+            fprintf(file, "%f %f\n", index, *((double *)binn_ptr(obj))); 
             break;
         case BINN_INT32:
-            fprintf(file, "value: %d\n", *((int32_t*)binn_ptr(obj)));
+            fprintf(file, "%f %d\n", index, *((int32_t*)binn_ptr(obj)));
             break;
         case BINN_UINT32:
-            fprintf(file, "value: %d\n", *((uint32_t*)binn_ptr(obj)));
+            fprintf(file, "%f %d\n", index, *((uint32_t*)binn_ptr(obj)));
             break;
         case BINN_STRING:
             printf("value is string\n");
@@ -1595,7 +1616,7 @@ void parse(dlis_t *dlis) {
                 dlis->on_iflr_header_f(dlis, &frame_name, frame_index);
 
                 // update status
-                //dlis->parse_state.iflr_index = frame_index; //temporary: skip iflr
+                dlis->parse_state.parsing_frame_index = frame_index; //temporary: skip iflr
                 dlis->byte_idx += len;
                 dlis->parse_state.lrs_byte_cnt += len;
                 dlis->parse_state.vr_byte_cnt += len;

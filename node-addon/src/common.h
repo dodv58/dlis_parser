@@ -153,4 +153,6 @@ void serialize_value(binn* g_obj, char* key, value_t* val);
 void serialize_list_add(binn* g_obj, value_t* val);
 
 int jsprint(int f_idx, char *buff);
+
+double get_scalar_value(value_t* val);
 #endif

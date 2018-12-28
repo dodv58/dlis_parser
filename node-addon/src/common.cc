@@ -746,3 +746,37 @@ void serialize_list_add(binn* g_obj, value_t* val){
             break;
     }    
 }
+
+double get_scalar_value(value_t* val){
+    double retval = 0;
+    switch(val->repcode) {
+        case DLIS_FSHORT:
+        case DLIS_FSINGL:
+        case DLIS_FSING1:
+        case DLIS_FSING2:
+        case DLIS_ISINGL:
+        case DLIS_VSINGL:
+        case DLIS_FDOUBL:
+        case DLIS_FDOUB1:
+        case DLIS_FDOUB2:
+        case DLIS_CSINGL:
+        case DLIS_CDOUBL:
+            retval = val->u.double_val;
+            break;
+        case DLIS_SSHORT:
+        case DLIS_SNORM:
+        case DLIS_SLONG:
+            retval = val->u.int_val;
+            break;
+        case DLIS_USHORT:
+        case DLIS_UNORM:
+        case DLIS_ULONG:
+        case DLIS_UVARI:
+        case DLIS_STATUS:
+            retval = val->u.uint_val;
+            break;
+        default: 
+            printf("This is not scalar value!!!\n");
+    }
+    return retval;
+}
