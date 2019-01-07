@@ -221,7 +221,6 @@ void channel_init(channel_t* channel){
 void dlis_init(dlis_t *dlis) {
     printf("dlis init\n");
     initSocket(dlis);
-    dlis->timer_start = clock();
     dlis->buffer_idx = 0;
     dlis->byte_idx = 0;
     dlis->max_byte_idx = 0;
@@ -261,13 +260,6 @@ void dlis_init(dlis_t *dlis) {
     dlis->current_channel = NULL;
 }
 void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
-    time_t timer_current = clock();
-    if((timer_current - dlis->timer_start)/CLOCKS_PER_SEC >= 10){
-        fprintf(stderr, "pause!!!\n");
-        //usleep(2 * 1000*1000);
-        dlis->timer_start = clock();
-        fprintf(stderr, "resume!!!\n");
-    }
     //printf("dlis_read: in_count:%d, byte_idx=%d, max_byte_idx:%d, buffer_idx=%d\n", in_count, dlis->byte_idx, dlis->max_byte_idx, dlis->buffer_idx);
     int b_idx = dlis->buffer_idx;
     if (dlis->max_byte_idx + in_count >= DLIS_BUFF_SIZE) {
@@ -985,7 +977,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         //printf("origin: %d, copy_number %d, name %s\n", dlis->current_frame->origin, dlis->current_frame->copy_number, dlis->current_frame->name);
     }
      
-    char filename[obname.name.len + 5 + strlen(DATA_DIR)];
+    char filepath[100];
     if(strncmp(state->parsing_set_type, "CHANNEL", 7) == 0) {
         if(dlis->current_channel == NULL){
             dlis->current_channel = &dlis->channels;
@@ -999,10 +991,8 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         memmove(dlis->current_channel->name, obname.name.buff, obname.name.len);
         dlis->current_channel->name[obname.name.len] = '\0';
 
-        memmove(&filename, DATA_DIR, strlen(DATA_DIR));
-        memmove(&filename[strlen(DATA_DIR)], obname.name.buff, obname.name.len);
-        memmove(&filename[strlen(DATA_DIR) + obname.name.len], ".txt\0", 5);
-		dlis->current_channel->fp = fopen(filename, "w+");	
+        sprintf(filepath, "%s%d-%d-%.*s.txt", dlis->out_dir, obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
+		dlis->current_channel->fp = fopen(filepath, "w+");	
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
     //sending data to js
@@ -1020,7 +1010,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         serialize_sized_str(state->parsing_obj_binn, (char*)"name", &obname.name);
         binn_object_set_int32(state->parsing_obj_binn, (char *)"functionIdx", _eflr_data_);
         if(strncmp(state->parsing_set_type, "CHANNEL", strlen(state->parsing_set_type)) == 0){
-            binn_object_set_str(state->parsing_obj_binn, (char*) "path", filename);
+            binn_object_set_str(state->parsing_obj_binn, (char*) "path", filepath);
         }
     }
 }
@@ -1173,15 +1163,16 @@ void dump(dlis_t *dlis) {
         dlis->max_byte_idx);
 }
 
-void *do_parse(void *file_name_void) {
-
-    char* file_name = (char*)file_name_void;
-    printf("do_parse %s\n", file_name);
+void *do_parse(void *arguments) {
+    args_t* _args = (args_t*) arguments;
+    printf("do_parse file: %s, data directory: %s\n", _args->fname, _args->data_dir);
     byte_t buffer[4 * 1024];
     int byte_read;
     dlis_t dlis;
     dlis_init(&dlis);
-    FILE *f = fopen(file_name, "rb");
+    strcpy(dlis.out_dir, _args->data_dir);
+    
+    FILE *f = fopen(_args->fname, "rb");
     if (f == NULL) {
         fprintf(stderr, "Error open file %s\n", strerror(errno));
         exit(-1);

@@ -7,7 +7,6 @@
 
 
 #define ENDPOINT "ipc:///tmp/dlis-socket"
-#define DATA_DIR "data/"
 
 enum lrs_iflr_type_e {
     FDATA = 0,
@@ -157,7 +156,6 @@ typedef struct parse_state_s parse_state_t;
 #define DLIS_BUFF_SIZE (64*1024)
 #define DLIS_BUFF_NUM 4
 struct dlis_s {
-    time_t timer_start;
     int buffer_idx;
     int byte_idx;
     int max_byte_idx;
@@ -189,14 +187,21 @@ struct dlis_s {
     frame_t* current_frame;
     channel_t channels;
     channel_t* current_channel;
+
+    char out_dir[100];
 };
 typedef struct dlis_s dlis_t;
+
+typedef struct args_s {
+    char fname[100];
+    char data_dir[100];
+} args_t;
 
 /* dlis file functions */
 void dlis_init(dlis_t *dlis);
 void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count);
 
-void *do_parse(void *file_name_void);
+void *do_parse(void *arguments);
 //int jscall(char *buff, int len);
 //void initSocket();
 int jscall(dlis_t* dlis, char *buff, int len);

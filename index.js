@@ -1,5 +1,6 @@
 var binn = require("binn.js");
 var zeromq = require('zeromq');
+const fs = require('fs');
 
 module.exports.parseFile = parseFile;
 
@@ -106,9 +107,23 @@ function obname2Str(obj) {
     return obj.origin + "-" + obj.copy_number + "-" + obj.name;
 }
 
+function mkdirSyncRecursive(path){
+    console.log(path);
+    let arr = path.split('/').filter(Boolean);
+    const curDir = arr.pop();
+    const parentDir = arr.join('/');
+    if(!fs.existsSync(parentDir)){
+        mkdirSyncRecursive(parentDir);
+    } 
+    
+    fs.mkdirSync(parentDir + '/' + curDir);
+}
+
 function parseFile(fileName, userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd) {
     var DlisEngine = initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd);
-    let temp = DlisEngine.parser.parseFile(fileName);
+    const dataDir = './dlis_out/' + userInfo.name + '/' + Date.now() + '/';
+    mkdirSyncRecursive(dataDir);
+    const temp = DlisEngine.parser.parseFile(fileName, dataDir);
 }
 function eflr_data(dlisInstance, myObj) {
     //console.log(cnt++);
