@@ -108,10 +108,13 @@ function obname2Str(obj) {
 }
 
 function mkdirSyncRecursive(path){
-    console.log(path);
+    let root = false;
+    if(/^\//.test(path)){
+        root = true;
+    }
     let arr = path.split('/').filter(Boolean);
     const curDir = arr.pop();
-    const parentDir = arr.join('/');
+    const parentDir = root ? '/' + arr.join('/') : arr.join('/');
     if(!fs.existsSync(parentDir)){
         mkdirSyncRecursive(parentDir);
     } 
@@ -121,7 +124,7 @@ function mkdirSyncRecursive(path){
 
 function parseFile(fileName, userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd) {
     var DlisEngine = initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd);
-    const dataDir = './dlis_out/' + userInfo.name + '/' + Date.now() + '/';
+    const dataDir = userInfo.dataPath + '/dlis_out/' + userInfo.username + '/' + Date.now() + '/';
     mkdirSyncRecursive(dataDir);
     const temp = DlisEngine.parser.parseFile(fileName, dataDir);
 }
@@ -157,6 +160,7 @@ function eflr_data(dlisInstance, myObj) {
                 dlisInstance.onDatasetInfoCb(myObj);
             }
             else if(setType == "CHANNEL"){
+                myObj.path = myObj.path.replace(dlisInstance.userInfo.dataPath + '/', '');
                 dlisInstance.onCurveInfoCb(myObj);
             }
         }
