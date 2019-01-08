@@ -689,15 +689,7 @@ int parse_iflr_data(dlis_t* dlis) {
                 state->parsing_frame_index = get_scalar_value(&val);
             }
 
-            if(state->parsing_dimension > 1) {
-            /*
-            TODO: array variable
             serialize_list_add(state->parsing_iflr_values, &val);
-            */
-            } else {
-                serialize_list_add(state->parsing_iflr_values, &val);
-            }
-
 
             state->parsing_value_cnt++;
             current_byte_idx += len;
@@ -1119,39 +1111,36 @@ void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
 void on_iflr_data(dlis_t* dlis){
     //printf("-->on_iflr_data\n");
     parse_state_t* state = &dlis->parse_state;
-    binn* obj = binn_object();
-    binn_object_set_int32(obj, (char*)"functionIdx", _iflr_data_);
-    binn_object_set_object(obj, (char*)"values", state->parsing_iflr_values);
     
-    //jscall(dlis, (char*)binn_ptr(obj), binn_size(obj));
     //write to file
-    binn item;
-    binn_iter iter;
-    binn_list_foreach(state->parsing_iflr_values, item) {
-        write_to_curve_file(dlis->current_channel->fp, state->parsing_frame_index, &item);
-    }
+    write_to_curve_file(dlis->current_channel->fp, state->parsing_frame_index, state->parsing_iflr_values);
     __binn_free(state->parsing_iflr_values);
-    __binn_free(obj);
 }
 
-void write_to_curve_file(FILE* file, double index, binn* obj){
-    switch(binn_type(obj)){
-        case BINN_DOUBLE:
-            fprintf(file, "%f %f\n", index, *((double *)binn_ptr(obj))); 
-            break;
-        case BINN_INT32:
-            fprintf(file, "%f %d\n", index, *((int32_t*)binn_ptr(obj)));
-            break;
-        case BINN_UINT32:
-            fprintf(file, "%f %d\n", index, *((uint32_t*)binn_ptr(obj)));
-            break;
-        case BINN_STRING:
-            printf("value is string\n");
-            break;
-        case BINN_OBJECT:
-            printf("value is object\n");
-            break;
+void write_to_curve_file(FILE* file, double index, binn* channel_values){
+    binn item;
+    binn_iter iter;
+    fprintf(file, "%f", index);
+    binn_list_foreach(channel_values, item) {
+        switch(binn_type(&item)){
+            case BINN_DOUBLE:
+                fprintf(file, " %f", *((double *)binn_ptr(&item))); 
+                break;
+            case BINN_INT32:
+                fprintf(file, " %d", *((int32_t*)binn_ptr(&item)));
+                break;
+            case BINN_UINT32:
+                fprintf(file, " %d", *((uint32_t*)binn_ptr(&item)));
+                break;
+            case BINN_STRING:
+                printf("value is string");
+                break;
+            case BINN_OBJECT:
+                printf("value is object");
+                break;
+        }
     }
+    fprintf(file, "\n");
 }
 
 void dump(dlis_t *dlis) {

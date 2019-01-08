@@ -88,7 +88,6 @@ let currentSet;
             ...
          }
     }
-
     dlisFrame = {
         "frame1": {
             channels: [
@@ -108,13 +107,12 @@ function obname2Str(obj) {
 }
 
 function mkdirSyncRecursive(path){
-    let root = false;
-    if(/^\//.test(path)){
-        root = true;
+    if(!/^\//.test(path)){
+        path = __dirname + '/' + path;
     }
     let arr = path.split('/').filter(Boolean);
     const curDir = arr.pop();
-    const parentDir = root ? '/' + arr.join('/') : arr.join('/');
+    const parentDir = '/' + arr.join('/');
     if(!fs.existsSync(parentDir)){
         mkdirSyncRecursive(parentDir);
     } 
@@ -124,7 +122,12 @@ function mkdirSyncRecursive(path){
 
 function parseFile(fileName, userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd) {
     var DlisEngine = initDlis(userInfo, onWellInfoCb, onDatasetInfoCb, onCurveInfoCb, onCurveDataCb, onEnd);
-    const dataDir = userInfo.dataPath + '/dlis_out/' + userInfo.username + '/' + Date.now() + '/';
+    let dataDir = "";
+    if(userInfo.dataPath){
+        dataDir = userInfo.dataPath + '/dlis_out/' + userInfo.username + '/' + Date.now() + '/';
+    } else {
+        dataDir = __dirname + '/dlis_out/' + userInfo.username + '/' + Date.now() + '/';
+    }
     mkdirSyncRecursive(dataDir);
     const temp = DlisEngine.parser.parseFile(fileName, dataDir);
 }
@@ -218,4 +221,3 @@ function iflr_data(instance, myObj) {
 }
 
 //parse(process.argv[2]);
-
