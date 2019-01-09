@@ -973,7 +973,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         //printf("origin: %d, copy_number %d, name %s\n", dlis->current_frame->origin, dlis->current_frame->copy_number, dlis->current_frame->name);
     }
      
-    char filepath[100];
+    char filepath[4096];
     if(strncmp(state->parsing_set_type, "CHANNEL", 7) == 0) {
         if(dlis->current_channel == NULL){
             dlis->current_channel = &dlis->channels;

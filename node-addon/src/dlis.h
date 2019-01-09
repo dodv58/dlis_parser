@@ -188,13 +188,13 @@ struct dlis_s {
     channel_t channels;
     channel_t* current_channel;
 
-    char out_dir[100];
+    char out_dir[4000];
 };
 typedef struct dlis_s dlis_t;
 
 typedef struct args_s {
-    char fname[100];
-    char data_dir[100];
+    char fname[256];
+    char data_dir[4000];
 } args_t;
 
 /* dlis file functions */
