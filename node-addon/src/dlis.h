@@ -6,7 +6,7 @@
 #include <pthread.h>
 
 
-#define ENDPOINT "ipc:///tmp/dlis-socket"
+#define ENDPOINT "ipc:///tmp/dlis-socket-"
 
 enum lrs_iflr_type_e {
     FDATA = 0,

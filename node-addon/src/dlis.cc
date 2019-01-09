@@ -7,6 +7,10 @@
 #include <errno.h>
 #include <stdarg.h>
 
+#include <sys/types.h>
+#include <unistd.h>
+
+
 #define __binn_free(x) binn_free(x); x = NULL
 //binn *g_obj;
 /*
@@ -1215,7 +1219,9 @@ void initSocket(dlis_t* dlis){
 void initSocket(dlis_t* dlis){
     dlis->context = zmq_ctx_new();
     dlis->sender = zmq_socket(dlis->context, ZMQ_REQ);
-    int rc = zmq_connect(dlis->sender, ENDPOINT);
+    char socket[100];
+    sprintf(socket, "%s%d", ENDPOINT, getpid());
+    int rc = zmq_connect(dlis->sender, socket);
     if (rc < 0) {
         fprintf(stderr, "Error connecting socket\n");
     }

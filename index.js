@@ -5,8 +5,8 @@ const fs = require('fs');
 module.exports.parseFile = parseFile;
 
 var socket = zeromq.socket("rep");
-socket.bindSync('ipc:///tmp/dlis-socket');
-console.log("bind done");
+socket.bindSync('ipc:///tmp/dlis-socket-' + process.pid);
+console.log("bind done " + process.pid);
 
 /*
 var socket = zeromq.socket("pull");
