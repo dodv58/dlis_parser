@@ -65,7 +65,6 @@ int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *version);
 int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t *lrs_type);
 int parse_lrs_encryption_packet(dlis_t *dlis);
 int parse_lrs_trailing(dlis_t *dlis);
-void get_repcode_dimension(int input, int *repcode, int *dimension);
 int trailing_len(dlis_t* dlis);
 int padding_len(dlis_t* dlis);
 
@@ -914,6 +913,7 @@ int eflr_set_template_is_last_attr(parse_state_t* state){
 }
 
 void on_sul(int seq, char *version, char *structure, int max_rec_len, char *ssi) {
+    /*
     binn* g_obj = binn_object();
 
     binn_object_set_int32(g_obj, (char *)"seq", seq);
@@ -925,6 +925,7 @@ void on_sul(int seq, char *version, char *structure, int max_rec_len, char *ssi)
     binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
     //jscall((char *)binn_ptr(g_obj), binn_size(g_obj));
     __binn_free(g_obj);
+    */
 }
 
 void on_visible_record_header(int vr_idx, int vr_len, int version) {
@@ -957,7 +958,7 @@ void on_eflr_component_set(dlis_t* dlis, sized_str_t *type, sized_str_t *name) {
 void on_eflr_component_object(dlis_t* dlis, obname_t obname){
     parse_state_t* state = &dlis->parse_state;
     //save frame and channel data for parsing fdata
-    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0){
+    if(strncmp(state->parsing_set_type, "FRAME", strlen(state->parsing_set_type)) == 0){
         if(dlis->current_frame == NULL){
             dlis->current_frame = &dlis->frames;
         }else {
@@ -974,7 +975,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
     }
      
     char filepath[4096];
-    if(strncmp(state->parsing_set_type, "CHANNEL", 7) == 0) {
+    if(strncmp(state->parsing_set_type, "CHANNEL", strlen(state->parsing_set_type)) == 0) {
         if(dlis->current_channel == NULL){
             dlis->current_channel = &dlis->channels;
         }else {
@@ -992,9 +993,9 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
     //sending data to js
-    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || 
-        strncmp(state->parsing_set_type, "CHANNEL", 7) == 0 ||
-        strncmp(state->parsing_set_type, "ORIGIN", 6) == 0){
+    if(strncmp(state->parsing_set_type, "FRAME", strlen(state->parsing_set_type)) == 0 || 
+        strncmp(state->parsing_set_type, "CHANNEL", strlen(state->parsing_set_type)) == 0 ||
+        strncmp(state->parsing_set_type, "ORIGIN", strlen(state->parsing_set_type)) == 0){
         if(state->parsing_obj_binn != NULL) {
             jscall(dlis, (char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
             __binn_free(state->parsing_obj_binn);
@@ -1103,14 +1104,15 @@ void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
     
     dlis->current_channel = dlis->current_frame->channels;
 
-    binn* g_obj = binn_object();
-    serialize_obname(g_obj, (char *)"frame_name", frame_name);
-    binn_object_set_int32(g_obj, (char *)"fdata_index", index);
+    //send frame header to js
+    //binn* g_obj = binn_object();
+    //serialize_obname(g_obj, (char *)"frame_name", frame_name);
+    //binn_object_set_int32(g_obj, (char *)"fdata_index", index);
 
-    binn_object_set_int32(g_obj, (char *)"functionIdx", _iflr_header_);
-    jscall(dlis, (char *)binn_ptr(g_obj), binn_size(g_obj));
+    //binn_object_set_int32(g_obj, (char *)"functionIdx", _iflr_header_);
+    //jscall(dlis, (char *)binn_ptr(g_obj), binn_size(g_obj));
 
-    __binn_free(g_obj);
+    //__binn_free(g_obj);
 }
 void on_iflr_data(dlis_t* dlis){
     //printf("-->on_iflr_data\n");
@@ -1196,14 +1198,6 @@ int jscall(dlis_t* dlis, char *buff, int len) {
     zmq_send(dlis->sender, buff, len, 0);
     zmq_recv(dlis->sender, buffer, sizeof(buffer), 0);
     return 0;
-}
-void get_repcode_dimension(int input, int *repcode, int *dimension) {
-    if (input == -1) {
-        fprintf(stderr, "please check input before extract repcode & dimension\n");
-        exit(-1); // sanity check
-    }
-    *repcode = input >> 16;
-    *dimension = input & 0x0000FFFF; 
 }
 /*
 void initSocket(dlis_t* dlis){

@@ -108,10 +108,8 @@ typedef enum rep_code_e rep_code_t;
 // For node module addon
 typedef enum node_addon_e {
     _eflr_data_ = 0,
-    _iflr_header_ = 1,
-    _iflr_data_ = 2,
-    _get_repcode_ = 3,
-    NCALLBACKS = 4
+    //_iflr_header_ = 1,
+    NCALLBACKS = 1
 } node_addon_t;
 
 
