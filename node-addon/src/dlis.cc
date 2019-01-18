@@ -940,8 +940,7 @@ void on_logical_record_end(int lrs_idx) {
 }
 
 void on_eflr_component_set(dlis_t* dlis, sized_str_t *type, sized_str_t *name) {
-    //printf("==>on eflr component set:type_len %d, type %.*s, name_len %d, name %.*s\n", 
-    //                       type->len, type->len, type->buff, name->len, name->len, name->buff);
+    //printf("==>on eflr component set:type_len %d, type %.*s, name_len %d, name %.*s\n", type->len, type->len, type->buff, name->len, name->len, name->buff);
     if(strncmp((const char*)type->buff, (const char*)"FRAME", type->len) == 0 ||
         strncmp((const char*)type->buff, (const char*)"CHANNEL", type->len) == 0 ||
         strncmp((const char*)type->buff, (const char*)"ORIGIN", type->len) == 0){
@@ -956,6 +955,7 @@ void on_eflr_component_set(dlis_t* dlis, sized_str_t *type, sized_str_t *name) {
 }
 
 void on_eflr_component_object(dlis_t* dlis, obname_t obname){
+    //printf("==> on_eflr_component_object: origin: %d, copy_number %d, name %.*s\n", obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
     parse_state_t* state = &dlis->parse_state;
     //save frame and channel data for parsing fdata
     if(strncmp(state->parsing_set_type, "FRAME", strlen(state->parsing_set_type)) == 0){

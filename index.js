@@ -126,7 +126,7 @@ function eflr_data(dlisInstance, myObj) {
             delete myObj["sending_data_type"];
             delete myObj["functionIdx"];
             //currentSet[objName] = myObj;
-            if(setType == "ORIGIN" && objName.indexOf("DEFINING_ORIGIN") != -1){
+            if(setType == "ORIGIN"){
                 myObj.userInfo = dlisInstance.userInfo;
                 dlisInstance.onWellInfoCb(myObj);
             }
