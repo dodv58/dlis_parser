@@ -465,6 +465,7 @@ int parse_obname(byte_t *buff, int buff_len, obname_t* obname){
     int origin_len = parse_uvari(buff, buff_len, &obname->origin);
     if(origin_len <= 0) return -1;
 
+    if(buff_len < origin_len + 1) return -1;
     parse_ushort(buff + origin_len, &obname->copy_number);
 
     int name_len = parse_ident(buff + origin_len + 1, buff_len - origin_len - 1, &obname->name);
