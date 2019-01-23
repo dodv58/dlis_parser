@@ -195,6 +195,7 @@ typedef struct dlis_s dlis_t;
 typedef struct args_s {
     char fname[256];
     char data_dir[4000];
+    void* context;
 } args_t;
 
 /* dlis file functions */

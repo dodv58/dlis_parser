@@ -9,6 +9,7 @@ using v8::String;
 using v8::Function;
 
 args_t _args;
+void* zmq_ctx;
 
 void dlis_parse(const FunctionCallbackInfo<Value>& args) {
     pthread_t parsing_thread;
@@ -20,6 +21,8 @@ void dlis_parse(const FunctionCallbackInfo<Value>& args) {
     String::Utf8Value dirVal(args[1]);
     std::string dir(*dirVal);
     strcpy(_args.data_dir, dir.c_str());
+
+    _args.context = zmq_ctx;
 
     if(pthread_create(&parsing_thread, NULL, &do_parse, (void*) &_args) != 0) {
         fprintf(stderr, "create thread failed");
@@ -34,6 +37,7 @@ void dlis_parse_segment(const FunctionCallbackInfo<Value>& args) {
 }
 
 void init(Local<Object> exports) {
+    zmq_ctx = zmq_ctx_new();
     NODE_SET_METHOD(exports, "parseFile", dlis_parse);
     //NODE_SET_METHOD(exports, "parseSegment", dlis_parse_segment);
 }

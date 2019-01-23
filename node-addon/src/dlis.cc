@@ -223,7 +223,6 @@ void channel_init(channel_t* channel){
 }
 void dlis_init(dlis_t *dlis) {
     //printf("dlis init\n");
-    initSocket(dlis);
     dlis->buffer_idx = 0;
     dlis->byte_idx = 0;
     dlis->max_byte_idx = 0;
@@ -1196,8 +1195,10 @@ void *do_parse(void *arguments) {
     int byte_read;
     dlis_t dlis;
     dlis_init(&dlis);
+    dlis.context = _args->context;
+    initSocket(&dlis);
     strcpy(dlis.out_dir, _args->data_dir);
-    
+
     FILE *f = fopen(_args->fname, "rb");
     if (f == NULL) {
         fprintf(stderr, "Error open file %s\n", strerror(errno));
@@ -1221,6 +1222,8 @@ void *do_parse(void *arguments) {
     binn_object_set_int32(obj, (char*)"ended", 1);
     jscall(&dlis, (char*)binn_ptr(obj), binn_size(obj));
     __binn_free(obj);
+    
+    zmq_close(dlis.sender);
     return NULL;
 }
 int jscall(dlis_t* dlis, char *buff, int len) {
@@ -1242,7 +1245,6 @@ void initSocket(dlis_t* dlis){
 }
 */
 void initSocket(dlis_t* dlis){
-    dlis->context = zmq_ctx_new();
     dlis->sender = zmq_socket(dlis->context, ZMQ_REQ);
     char socket[100];
     sprintf(socket, "%s%d", ENDPOINT, getpid());
