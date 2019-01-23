@@ -20,7 +20,6 @@ var instance = {
 
 socket.on("message", function(buffer) {
     let myObj = binn.decode(buffer);
-    console.log(JSON.stringify(myObj))
     let retval = 1;
     if(myObj.ended){
         instance.onEnd(); 
