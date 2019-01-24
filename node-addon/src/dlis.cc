@@ -1262,7 +1262,7 @@ void get_filename(channel_t channel){
 void next_state(dlis_t* dlis){
     int lrs_trail_len = 0;
 	
-    //printf("--next_state(): %s vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, trail_len %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, trailing_len(dlis));
+    //printf("--next_state(): %s vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, trail_len %d, channel %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, trailing_len(dlis), dlis->current_channel ? dlis->current_channel->index : -1);
 
 
 	switch(dlis->parse_state.code){
@@ -1432,12 +1432,14 @@ void parse(dlis_t *dlis) {
     obname_t frame_name;
     uint32_t frame_index;
     
-	if (dlis->byte_idx == dlis->max_byte_idx) return;
+	if (dlis->byte_idx == dlis->max_byte_idx) {
+        return;
+    }
 
     while (1) {
         // check if a lrs segment is in buffer. Get padding length right away and mark that it has length
-        //printf("parse loop: parse_state.code:%s, max_byte_idx:%d, byte_idx:%d\n", 
-        //        PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx);
+        //printf("==> parse loop: %s, max_byte_idx:%d, byte_idx:%d, trail_len %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx, trailing_len(dlis));
+        if(trailing_len(dlis) < 0) goto end_loop;
 
         switch(dlis->parse_state.code) {
             case EXPECTING_SUL:
