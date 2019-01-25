@@ -353,7 +353,6 @@ int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *vr_version) {
 
     // parse version
 	parse_ushort(&(p_buffer[current_byte_idx]), vr_version);
-    
 
     return VR_HEADER_LEN;
 }
@@ -743,7 +742,7 @@ void lrs_skip_unparsed_buff(dlis_t* dlis){
         memmove(state->unparsed_buff, &dlis->buffer[dlis->buffer_idx][dlis->byte_idx - 1], lrs_remain_bytes + 1); //a byte for comp header
         state->unparsed_buff_len = lrs_remain_bytes + 1;
     }
-    //printf("len %d, buff 0x%2s\n", state->unparsed_buff_len, state->unparsed_buff);
+    //printf("len %d, buff '0x%2s'\n", state->unparsed_buff_len, state->unparsed_buff);
     //skip unparsed buff
     dlis->byte_idx += lrs_remain_bytes;
     state->lrs_byte_cnt += lrs_remain_bytes;
@@ -1058,7 +1057,7 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
     //save frame and channel data for parsing fdata
     if(strncmp(state->parsing_set_type, "CHANNEL", 7) == 0) {
         if(strncmp((const char*)label->buff, "DIMENSION", 9) == 0) {
-            dlis->current_channel->dimension = val->u.uint_val;
+            dlis->current_channel->dimension *= val->u.uint_val;
         }
         else if(strncmp((const char*)label->buff, "REPRESENTATION-CODE", 19) == 0) {
             dlis->current_channel->repcode = val->u.uint_val;
