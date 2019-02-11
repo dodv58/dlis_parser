@@ -941,6 +941,10 @@ int eflr_set_template_is_last_attr(parse_state_t* state){
 
 void on_sul(int seq, char *version, char *structure, int max_rec_len, char *ssi) {
     printf("SUL seq %d, version %s, structure %s, max_rec_len %d, ssi %s \n", seq, version, structure, max_rec_len, ssi);
+    if(version[1] != '1'){
+        printf("This is not dlis v1 file!!!\n");
+        exit(-1);
+    }
     /*
     binn* g_obj = binn_object();
 
@@ -1020,7 +1024,8 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
 		dlis->current_channel->fp = fopen(filepath, "w+");	
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
-    //sending data to js
+    //sending data to js 
+    
     if(strncmp(state->parsing_set_type, "FRAME", strlen(state->parsing_set_type)) == 0 || 
         strncmp(state->parsing_set_type, "CHANNEL", strlen(state->parsing_set_type)) == 0 ||
         strncmp(state->parsing_set_type, "ORIGIN", strlen(state->parsing_set_type)) == 0){
@@ -1189,7 +1194,7 @@ void dump(dlis_t *dlis) {
 
 void *do_parse(void *arguments) {
     args_t* _args = (args_t*) arguments;
-    printf("do_parse file: %s, data directory: %s\n", _args->fname, _args->data_dir);
+    printf("do_parse file: %s\ndata directory: %s\n", _args->fname, _args->data_dir);
     byte_t buffer[4 * 1024];
     int byte_read;
     dlis_t dlis;
@@ -1252,10 +1257,6 @@ void initSocket(dlis_t* dlis){
         fprintf(stderr, "Error connecting socket\n");
     }
     fprintf(stderr, "connect done %d\n", rc);
-}
-
-void get_filename(channel_t channel){
-
 }
 
 void next_state(dlis_t* dlis){
@@ -1437,7 +1438,7 @@ void parse(dlis_t *dlis) {
 
     while (1) {
         // check if a lrs segment is in buffer. Get padding length right away and mark that it has length
-        //printf("==> parse loop: %s, max_byte_idx:%d, byte_idx:%d, trail_len %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx, trailing_len(dlis));
+        //printf("==> parse loop: %s, max_byte_idx:%d, byte_idx:%d, vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, channel %d, trail_len %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx, dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, dlis->current_channel ? dlis->current_channel->index : -1, trailing_len(dlis));
         if(trailing_len(dlis) < 0) goto end_loop;
 
         switch(dlis->parse_state.code) {

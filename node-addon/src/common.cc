@@ -307,7 +307,7 @@ int is_integer(char *str, int len) {
 }
 
 int parse_ident(byte_t *buff, int buff_len, sized_str_t *output) {
-    if (output == NULL || buff == NULL || buff_len <= 1) {
+    if (output == NULL || buff == NULL || buff_len < 1) {
         return -1;
     }
     unsigned int len = 0;
@@ -320,7 +320,7 @@ int parse_ident(byte_t *buff, int buff_len, sized_str_t *output) {
 }
 
 int parse_ascii(byte_t *buff, int buff_len, sized_str_t *output){ 
-    if (output == NULL || buff == NULL || buff_len <= 1) {
+    if (output == NULL || buff == NULL || buff_len < 1) {
         return -1;
     }
     unsigned int len = 0;
