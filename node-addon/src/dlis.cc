@@ -294,7 +294,7 @@ int parse_sul(dlis_t *dlis) {
     byte_t *sul = &(p_buffer[dlis->byte_idx]);
 
     // Check & Process SUL
-    //hexDump("--SUL--\n", sul, SUL_LEN);
+    hexDump("--SUL--\n", sul, SUL_LEN);
     char seq[20];
     char version[20];
     char structure[20];
@@ -557,7 +557,7 @@ int parse_eflr_component_attrib(dlis_t *dlis, sized_str_t *label, long *count,
     
     //update frame index type
     //check INDEX-TYPE attribute of frame object
-    if(strncmp((const char*)state->parsing_set_type, (const char*)"FRAME", strlen(state->parsing_set_type)) == 0 &&
+    if(strcmp((const char*)state->parsing_set_type, (const char*)"FRAME") == 0 &&
         strncmp((const char*)label->buff, (const char*)"INDEX-TYPE", label->len) == 0 &&
         dlis->parse_state.templt_read_idx >= 0 &&  // check if we are parsing template or object
         !eflr_comp_is_absatr(state)){
@@ -878,9 +878,9 @@ int trailing_len(dlis_t *dlis) {
             lrs_trail_len += 2;
         }
         if(lrs_attr_has_padding(&dlis->parse_state)) {
-            //printf("trailing has padding\n");
             padding_bytes = padding_len(dlis);
-            if(padding_bytes <= 0){
+            //printf("trailing has padding %d\n", padding_bytes);
+            if(padding_bytes < 0){
                 return -1;
             }
         }
@@ -973,6 +973,7 @@ void on_logical_record_end(int lrs_idx) {
 
 void on_eflr_component_set(dlis_t* dlis, sized_str_t *type, sized_str_t *name) {
     //printf("==>on eflr component set:type_len %d, type %.*s, name_len %d, name %.*s\n", type->len, type->len, type->buff, name->len, name->len, name->buff);
+    /*
     if(strncmp((const char*)type->buff, (const char*)"FRAME", type->len) == 0 ||
         strncmp((const char*)type->buff, (const char*)"CHANNEL", type->len) == 0 ||
         strncmp((const char*)type->buff, (const char*)"ORIGIN", type->len) == 0){
@@ -984,13 +985,21 @@ void on_eflr_component_set(dlis_t* dlis, sized_str_t *type, sized_str_t *name) {
         jscall(dlis, (char *)binn_ptr(g_obj), binn_size(g_obj));
         __binn_free(g_obj);
     }
+    */
+    binn* g_obj = binn_object();
+    serialize_sized_str(g_obj,(char*) "type", type);
+    serialize_sized_str(g_obj,(char*) "name", name);
+    binn_object_set_int32(g_obj, (char *)"sending_data_type", _SET);
+    binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
+    jscall(dlis, (char *)binn_ptr(g_obj), binn_size(g_obj));
+    __binn_free(g_obj);
 }
 
 void on_eflr_component_object(dlis_t* dlis, obname_t obname){
     //printf("==> on_eflr_component_object: origin: %d, copy_number %d, name %.*s\n", obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
     parse_state_t* state = &dlis->parse_state;
     //save frame and channel data for parsing fdata
-    if(strncmp(state->parsing_set_type, "FRAME", strlen(state->parsing_set_type)) == 0){
+    if(strcmp(state->parsing_set_type, "FRAME") == 0){
         if(dlis->current_frame == NULL){
             dlis->current_frame = &dlis->frames;
         }else {
@@ -1025,10 +1034,10 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
     //sending data to js 
-    
-    if(strncmp(state->parsing_set_type, "FRAME", strlen(state->parsing_set_type)) == 0 || 
-        strncmp(state->parsing_set_type, "CHANNEL", strlen(state->parsing_set_type)) == 0 ||
-        strncmp(state->parsing_set_type, "ORIGIN", strlen(state->parsing_set_type)) == 0){
+    /*
+    if(strcmp(state->parsing_set_type, "FRAME") == 0 || 
+        strcmp(state->parsing_set_type, "CHANNEL") == 0 ||
+        strcmp(state->parsing_set_type, "ORIGIN") == 0){
         if(state->parsing_obj_binn != NULL) {
             jscall(dlis, (char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
             __binn_free(state->parsing_obj_binn);
@@ -1043,24 +1052,44 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
             binn_object_set_str(state->parsing_obj_binn, (char*) "path", filepath);
         }
     }
+    */
+    if(state->parsing_obj_binn != NULL) {
+        jscall(dlis, (char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
+        __binn_free(state->parsing_obj_binn);
+    }
+    state->parsing_obj_binn = binn_object();
+    binn_object_set_int32(state->parsing_obj_binn, (char*)"sending_data_type", _OBJECT);
+    binn_object_set_int32(state->parsing_obj_binn, (char*)"origin", obname.origin);
+    binn_object_set_int32(state->parsing_obj_binn, (char*)"copy_number", obname.copy_number);
+    serialize_sized_str(state->parsing_obj_binn, (char*)"name", &obname.name);
+    binn_object_set_int32(state->parsing_obj_binn, (char *)"functionIdx", _eflr_data_);
+    if(strncmp(state->parsing_set_type, "CHANNEL", strlen(state->parsing_set_type)) == 0){
+        binn_object_set_str(state->parsing_obj_binn, (char*) "path", filepath);
+    }
 }
 
 void on_eflr_component_attrib(dlis_t* dlis, long count, int repcode, sized_str_t *unit) {
     parse_state_t* state = &dlis->parse_state;
-    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || 
-        strncmp(state->parsing_set_type, "CHANNEL", 7) == 0 ||
-        strncmp(state->parsing_set_type, "ORIGIN", 6) == 0){
+    /*
+    if(strcmp(state->parsing_set_type, "FRAME") == 0 || 
+        strcmp(state->parsing_set_type, "CHANNEL") == 0 ||
+        strcmp(state->parsing_set_type, "ORIGIN") == 0){
         if(!eflr_comp_attr_has_value(state) && eflr_set_template_is_last_attr(state)){
             jscall(dlis, (char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
             __binn_free(state->parsing_obj_binn);
         }
     }
+    */
+        if(!eflr_comp_attr_has_value(state) && eflr_set_template_is_last_attr(state)){
+            jscall(dlis, (char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
+            __binn_free(state->parsing_obj_binn);
+        }
 }
 
 void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *val) {
     parse_state_t* state = &dlis->parse_state;
     //save frame and channel data for parsing fdata
-    if(strncmp(state->parsing_set_type, "CHANNEL", 7) == 0) {
+    if(strcmp(state->parsing_set_type, "CHANNEL") == 0) {
         if(strncmp((const char*)label->buff, "DIMENSION", 9) == 0) {
             dlis->current_channel->dimension *= val->u.uint_val;
         }
@@ -1068,7 +1097,7 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
             dlis->current_channel->repcode = val->u.uint_val;
         }
     }
-    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 &&
+    if(strcmp(state->parsing_set_type, "FRAME") == 0 &&
         strncmp((const char*)label->buff, "CHANNELS", 8) == 0){
         //find channel with obname (val) in channels list
         channel_t* curr_channel = &dlis->channels;
@@ -1092,9 +1121,27 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
         }
     }
     //send data to js
-    if(strncmp(state->parsing_set_type, "FRAME", 5) == 0 || 
-        strncmp(state->parsing_set_type, "CHANNEL", 7) == 0 ||
-        strncmp(state->parsing_set_type, "ORIGIN", 6) == 0){
+        if(state->parsing_obj_values == NULL){
+            state->parsing_obj_values = binn_list();
+        }
+        serialize_list_add(state->parsing_obj_values, val);
+
+        if(state->attrib_value_cnt <= 0) {
+            char attr_label[label->len + 1];
+            memmove(attr_label, label->buff, label->len);
+            attr_label[label->len] = '\0';
+            binn_object_set_object(state->parsing_obj_binn, attr_label, state->parsing_obj_values);
+            __binn_free(state->parsing_obj_values);
+
+            if(eflr_set_template_is_last_attr(state)){
+                jscall(dlis, (char*)binn_ptr(state->parsing_obj_binn), binn_size(state->parsing_obj_binn));
+                __binn_free(state->parsing_obj_binn);
+            }
+        }
+        /*
+    if(strcmp(state->parsing_set_type, "FRAME") == 0 || 
+        strcmp(state->parsing_set_type, "CHANNEL") == 0 ||
+        strcmp(state->parsing_set_type, "ORIGIN") == 0){
         if(state->parsing_obj_values == NULL){
             state->parsing_obj_values = binn_list();
         }
@@ -1113,6 +1160,7 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
             }
         }
     }
+    */
 }
 
 void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
@@ -1163,21 +1211,44 @@ void write_to_curve_file(FILE* file, double index, binn* channel_values){
     fprintf(file, "%f", index);
     binn_list_foreach(channel_values, item) {
         switch(binn_type(&item)){
-            case BINN_DOUBLE:
-                fprintf(file, " %f", *((double *)binn_ptr(&item))); 
+            case BINN_INT8:
+                fprintf(file, " %d", item.vint8); 
+                break;
+            case BINN_UINT8:
+                fprintf(file, " %d", item.vuint8); 
+                break;
+            case BINN_INT16:
+                fprintf(file, " %d", item.vint16); 
+                break;
+            case BINN_UINT16:
+                fprintf(file, " %d", item.vuint16); 
                 break;
             case BINN_INT32:
-                fprintf(file, " %d", *((int32_t*)binn_ptr(&item)));
+                fprintf(file, " %d", item.vint32);
                 break;
             case BINN_UINT32:
-                fprintf(file, " %d", *((uint32_t*)binn_ptr(&item)));
+                fprintf(file, " %d", item.vuint32);
+                break;
+            case BINN_INT64:
+                fprintf(file, " %lld", item.vint64); 
+                break;
+            case BINN_UINT64:
+                fprintf(file, " %llu", item.vuint64); 
+                break;
+            case BINN_FLOAT:
+                fprintf(file, " %f", item.vfloat); 
+                break;
+            case BINN_DOUBLE:
+                fprintf(file, " %f", item.vdouble); 
                 break;
             case BINN_STRING:
-                printf("value is string");
+                fprintf(file, " %s", item.ptr);
                 break;
             case BINN_OBJECT:
                 printf("value is object");
                 break;
+            default:
+                printf("write_to_curve_file default!!!");
         }
     }
     fprintf(file, "\n");
@@ -1239,13 +1310,14 @@ int jscall(dlis_t* dlis, char *buff, int len) {
 }
 /*
 void initSocket(dlis_t* dlis){
-    dlis->context = zmq_ctx_new();
     dlis->sender = zmq_socket(dlis->context, ZMQ_PUSH);
-    int rc = zmq_bind(dlis->sender, ENDPOINT);
+    char socket[100];
+    sprintf(socket, "%s%d", ENDPOINT, getpid());
+    int rc = zmq_connect(dlis->sender, "ipc:///tmp/dlis");
     if (rc < 0) {
-        fprintf(stderr, "Error bind socket\n");
+        fprintf(stderr, "Error connecting socket\n");
     }
-    fprintf(stderr, "connect done %d\n", rc);
+    else fprintf(stderr, "connect done %d\n", rc);
 }
 */
 void initSocket(dlis_t* dlis){
