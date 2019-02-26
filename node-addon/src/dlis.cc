@@ -630,7 +630,9 @@ int parse_iflr_header(dlis_t *dlis, obname_t* frame_name, uint32_t* frame_index)
 
     if(nbytes < 0) return -1;
     current_byte_idx += nbytes;
-    
+    lrs_remain -= nbytes;
+    avail_bytes = lrs_remain <= dlis->max_byte_idx - current_byte_idx ? lrs_remain : dlis->max_byte_idx - current_byte_idx;
+
     if(dlis->parse_state.lrs_type == EOD){
         uint32_t lr_type  = 0;
         nbytes = parse_ushort(&p_buffer[current_byte_idx], &lr_type);
@@ -639,7 +641,7 @@ int parse_iflr_header(dlis_t *dlis, obname_t* frame_name, uint32_t* frame_index)
         //printf("---FRAME HEADER len: %d", current_byte_idx - dlis->byte_idx );
     }else {
         //iflr read frame index
-        nbytes = parse_uvari(&p_buffer[current_byte_idx], dlis->max_byte_idx - current_byte_idx, frame_index);
+        nbytes = parse_uvari(&p_buffer[current_byte_idx], avail_bytes, frame_index);
         //printf("---FRAME HEADER index %d, len: %d\n", *frame_index, nbytes);
         if(nbytes < 0) return -1;
         current_byte_idx += nbytes;
