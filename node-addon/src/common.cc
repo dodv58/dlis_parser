@@ -781,3 +781,40 @@ double get_scalar_value(value_t* val){
     }
     return retval;
 }
+
+bool is_null_value(binn* item){
+    double val = 0;
+    switch(binn_type(item)){
+        case BINN_INT8:
+            val = item->vint8;
+            break;
+        case BINN_UINT8:
+            val = item->vuint8;
+            break;
+        case BINN_INT16:
+            val = item->vint16;
+            break;
+        case BINN_UINT16:
+            val = item->vuint16;
+            break;
+        case BINN_INT32:
+            val = item->vint32;
+            break;
+        case BINN_UINT32:
+            val = item->vuint32;
+            break;
+        case BINN_INT64:
+            val = item->vint64;
+            break;
+        case BINN_UINT64:
+            val = item->vuint64;
+            break;
+        case BINN_FLOAT:
+            val = item->vfloat;
+            break;
+        case BINN_DOUBLE:
+            val = item->vdouble;
+            break;
+    }
+    return val == -9999 || val == -999 || val == -999.25;
+}

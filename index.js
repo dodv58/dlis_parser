@@ -3,11 +3,14 @@ var zeromq = require('zeromq');
 const fs = require('fs');
 
 module.exports.parseFile = parseFile;
-
 var socket = zeromq.socket("rep");
 socket.bindSync('ipc:///tmp/dlis-socket-' + process.pid);
+/*
+const socket = zeromq.socket("pull");
+socket.connect("ipc:///tmp/dlis");
 console.log("bind done " + process.pid);
 
+*/
 var dlis = require("./build/Release/dlis_parser");
 
 var instance = {
@@ -84,7 +87,7 @@ function mkdirSyncRecursive(path){
 }
 
 function eflr_data( myObj) {
-    //console.log("===> " + myObj);
+    //console.log(setType + " ===> " + JSON.stringify(myObj));
     switch(myObj.sending_data_type) {
     case sendingDataType._SET:
         setType = myObj.type;
@@ -100,7 +103,7 @@ function eflr_data( myObj) {
         }
         break;
     case sendingDataType._OBJECT:
-        //console.log("---->OBJECT --- " + JSON.stringify(myObj, null, 2));
+        //console.log(setType + " ===> " + JSON.stringify(myObj, null, 2));
         const objName = obname2Str(myObj);
         if(currentSet){
             delete myObj["sending_data_type"];
@@ -117,6 +120,9 @@ function eflr_data( myObj) {
                 myObj.path = myObj.path.replace(instance.userInfo.dataPath + '/', '');
                 instance.onCurveInfoCb(myObj);
             }
+        }
+        else {
+            //console.log("===> " + myObj);
         }
         break;
     }

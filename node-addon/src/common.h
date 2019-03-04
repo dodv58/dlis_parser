@@ -153,4 +153,5 @@ void serialize_list_add(binn* g_obj, value_t* val);
 int jsprint(int f_idx, char *buff);
 
 double get_scalar_value(value_t* val);
+bool is_null_value(binn* val);
 #endif

@@ -1212,45 +1212,50 @@ void write_to_curve_file(FILE* file, double index, binn* channel_values){
     binn_iter iter;
     fprintf(file, "%f", index);
     binn_list_foreach(channel_values, item) {
-        switch(binn_type(&item)){
-            case BINN_INT8:
-                fprintf(file, " %d", item.vint8); 
-                break;
-            case BINN_UINT8:
-                fprintf(file, " %d", item.vuint8); 
-                break;
-            case BINN_INT16:
-                fprintf(file, " %d", item.vint16); 
-                break;
-            case BINN_UINT16:
-                fprintf(file, " %d", item.vuint16); 
-                break;
-            case BINN_INT32:
-                fprintf(file, " %d", item.vint32);
-                break;
-            case BINN_UINT32:
-                fprintf(file, " %d", item.vuint32);
-                break;
-            case BINN_INT64:
-                fprintf(file, " %lld", item.vint64); 
-                break;
-            case BINN_UINT64:
-                fprintf(file, " %llu", item.vuint64); 
-                break;
-            case BINN_FLOAT:
-                fprintf(file, " %f", item.vfloat); 
-                break;
-            case BINN_DOUBLE:
-                fprintf(file, " %f", item.vdouble); 
-                break;
-            case BINN_STRING:
-                fprintf(file, " %s", item.ptr);
-                break;
-            case BINN_OBJECT:
-                printf("value is object");
-                break;
-            default:
-                printf("write_to_curve_file default!!!");
+        if(is_null_value(&item)){
+            printf("hihihihhi\n");
+            fprintf(file, " null");
+        } else {
+            switch(binn_type(&item)){
+                case BINN_INT8:
+                    fprintf(file, " %d", item.vint8); 
+                    break;
+                case BINN_UINT8:
+                    fprintf(file, " %d", item.vuint8); 
+                    break;
+                case BINN_INT16:
+                    fprintf(file, " %d", item.vint16); 
+                    break;
+                case BINN_UINT16:
+                    fprintf(file, " %d", item.vuint16); 
+                    break;
+                case BINN_INT32:
+                    fprintf(file, " %d", item.vint32);
+                    break;
+                case BINN_UINT32:
+                    fprintf(file, " %d", item.vuint32);
+                    break;
+                case BINN_INT64:
+                    fprintf(file, " %lld", item.vint64); 
+                    break;
+                case BINN_UINT64:
+                    fprintf(file, " %llu", item.vuint64); 
+                    break;
+                case BINN_FLOAT:
+                    fprintf(file, " %f", item.vfloat); 
+                    break;
+                case BINN_DOUBLE:
+                    fprintf(file, " %f", item.vdouble); 
+                    break;
+                case BINN_STRING:
+                    fprintf(file, " %s", item.ptr);
+                    break;
+                case BINN_OBJECT:
+                    printf("value is object");
+                    break;
+                default:
+                    printf("write_to_curve_file default!!!");
+            }
         }
     }
     fprintf(file, "\n");
