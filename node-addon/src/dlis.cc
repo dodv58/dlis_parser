@@ -210,6 +210,8 @@ void frame_init(frame_t* frame){
     frame->channels = NULL;
     frame->current_channel = NULL;
     frame->next = NULL;
+    frame->index_min = 1;
+    frame->index_max = 1;
 }
 void channel_init(channel_t* channel){
     channel->index = 0;
@@ -709,9 +711,18 @@ int parse_iflr_data(dlis_t* dlis) {
             }
 
             // saving first channel as frame index
-            if(dlis->current_channel->index == 1 &&
-                dlis->current_frame->index_type){
-                state->parsing_frame_index = get_scalar_value(&val);
+            if(dlis->current_channel->index == 1){
+                double _idx = get_scalar_value(&val);
+                if(dlis->current_frame->index_type){
+                    if(state->parsing_frame_index == 1){ //save top/bottom index
+                        dlis->current_frame->index_min = _idx;
+                    }
+                    state->parsing_frame_index = _idx;
+                    dlis->current_frame->index_max = _idx;
+                }
+                else {
+                    dlis->current_frame->index_max = state->parsing_frame_index;
+                }
             }
 
             serialize_list_add(state->parsing_iflr_values, &val);
@@ -1213,7 +1224,6 @@ void write_to_curve_file(FILE* file, double index, binn* channel_values){
     fprintf(file, "%f", index);
     binn_list_foreach(channel_values, item) {
         if(is_null_value(&item)){
-            printf("hihihihhi\n");
             fprintf(file, " null");
         } else {
             switch(binn_type(&item)){
@@ -1300,10 +1310,28 @@ void *do_parse(void *arguments) {
         fclose(iter->fp);
         iter = iter->next;
     }
+
     binn* obj = binn_object();
+    frame_t* frame = &dlis.frames;
+    binn* frame_obj; 
+    binn* frames = binn_list();
+    while(frame != NULL){
+        frame_obj = binn_object();
+        binn_object_set_uint32(frame_obj, (char*)"origin", frame->origin);
+        binn_object_set_uint32(frame_obj, (char*)"copy_number", frame->copy_number);
+        binn_object_set_str(frame_obj, (char*)"name", frame->name);
+        binn_object_set_double(frame_obj, (char*)"index_min", frame->index_min);
+        binn_object_set_double(frame_obj, (char*)"index_max", frame->index_max);
+        binn_list_add_object(frames, frame_obj);
+        binn_free(frame_obj);
+        frame = frame->next;
+    }
     binn_object_set_int32(obj, (char*)"ended", 1);
+    binn_object_set_list(obj, (char*)"frames", frames);
     jscall(&dlis, (char*)binn_ptr(obj), binn_size(obj));
+    __binn_free(frames);
     __binn_free(obj);
+
     
     zmq_close(dlis.sender);
     return NULL;

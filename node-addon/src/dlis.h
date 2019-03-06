@@ -105,6 +105,8 @@ typedef struct frame_s {
     unsigned int copy_number;
     bool index_type; // false: using frame index, true: using first channel 
     char name[100];
+    double index_min;
+    double index_max;
     channel_t* channels;
     channel_t* current_channel;
     struct frame_s* next;

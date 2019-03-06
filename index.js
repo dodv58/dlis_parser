@@ -22,10 +22,11 @@ var instance = {
 }
 
 socket.on("message", function(buffer) {
-    let myObj = binn.decode(buffer);
     let retval = 1;
+    socket.send(retval);
+    let myObj = binn.decode(buffer);
     if(myObj.ended){
-        instance.onEnd(); 
+        instance.onEnd(myObj); 
     } else {
         switch(myObj.functionIdx){
             case functionIdx.EFLR_DATA:
@@ -38,7 +39,6 @@ socket.on("message", function(buffer) {
             */
         }
     }
-    socket.send(retval);
 });
 
 
