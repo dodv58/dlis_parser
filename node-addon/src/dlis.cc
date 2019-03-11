@@ -296,7 +296,7 @@ int parse_sul(dlis_t *dlis) {
     byte_t *sul = &(p_buffer[dlis->byte_idx]);
 
     // Check & Process SUL
-    hexDump("--SUL--\n", sul, SUL_LEN);
+    //hexDump("--SUL--\n", sul, SUL_LEN);
     char seq[20];
     char version[20];
     char structure[20];
@@ -1003,7 +1003,6 @@ void on_eflr_component_set(dlis_t* dlis, sized_str_t *type, sized_str_t *name) {
     serialize_sized_str(g_obj,(char*) "type", type);
     serialize_sized_str(g_obj,(char*) "name", name);
     binn_object_set_int32(g_obj, (char *)"sending_data_type", _SET);
-    binn_object_set_int32(g_obj, (char *)"functionIdx", _eflr_data_);
     jscall(dlis, (char *)binn_ptr(g_obj), binn_size(g_obj));
     __binn_free(g_obj);
 }
@@ -1075,7 +1074,6 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
     binn_object_set_int32(state->parsing_obj_binn, (char*)"origin", obname.origin);
     binn_object_set_int32(state->parsing_obj_binn, (char*)"copy_number", obname.copy_number);
     serialize_sized_str(state->parsing_obj_binn, (char*)"name", &obname.name);
-    binn_object_set_int32(state->parsing_obj_binn, (char *)"functionIdx", _eflr_data_);
     if(strncmp(state->parsing_set_type, "CHANNEL", strlen(state->parsing_set_type)) == 0){
         binn_object_set_str(state->parsing_obj_binn, (char*) "path", filepath);
     }
