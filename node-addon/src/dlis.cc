@@ -1344,9 +1344,7 @@ int jscall(dlis_t* dlis, char *buff, int len) {
 /*
 void initSocket(dlis_t* dlis){
     dlis->sender = zmq_socket(dlis->context, ZMQ_PUSH);
-    char socket[100];
-    sprintf(socket, "%s%d", ENDPOINT, getpid());
-    int rc = zmq_connect(dlis->sender, "ipc:///tmp/dlis");
+    int rc = zmq_connect(dlis->sender, "tcp://127.0.0.1:5557");
     if (rc < 0) {
         fprintf(stderr, "Error connecting socket\n");
     }

@@ -82,6 +82,7 @@ function eflr_data( myObj) {
         setType = myObj.type;
         break;
     case sendingDataType._OBJECT:
+        myObj.name = myObj.name.trim();
         //console.log(setType + " ===> " + JSON.stringify(myObj, null, 2));
         const objName = obname2Str(myObj);
         if(setType == "FILE-HEADER"){
@@ -90,7 +91,7 @@ function eflr_data( myObj) {
             if(instance.wells.length < instance.numberOfWell){
                 instance.wells.push({
                     filename: myObj['FILE-SET-NAME'] ? myObj['FILE-SET-NAME'][0] : "",
-                    name: myObj['WELL-NAME'] ? myObj['WELL-NAME'][0] : myObj.name,
+                    name: myObj['WELL-NAME'] ? myObj['WELL-NAME'][0].trim() : myObj.name,
                     datasets: []
                 })
             }
@@ -120,15 +121,19 @@ function eflr_data( myObj) {
                 step: _step,
                 direction: _direction,
                 curves: [],
-                params: []
+                params: [],
+                unit: 'm'
             }
 
-            // console.log("onDatasetInfo: " + JSON.stringify(dataset));
+            //console.log("onDatasetInfo: " + JSON.stringify(dataset));
 
             if(channels){
                 //import curve to db
-                myObj['CHANNELS'].forEach(async channelName => {
+                myObj['CHANNELS'].forEach(function(channelName, index){
                     const channel = channels[obname2Str(channelName)];
+                    if(index == 0 && myObj['INDEX-TYPE']){
+                        dataset.unit = channel['UNITS'] ? channel['UNITS'][0] : "";
+                    }
                     let _dimension = 1;
                     let _type = 'NUMBER';
                     if(channel['DIMENSION']){
@@ -159,6 +164,7 @@ function eflr_data( myObj) {
             instance.wells[instance.numberOfWell - 1].datasets.push(dataset);
         }
         else if(setType == "CHANNEL"){
+            //console.log("===> CCC " + JSON.stringify(myObj));
             myObj.path = myObj.path.replace(instance.userInfo.dataPath + '/', '');
             channels[obname2Str(myObj)] = myObj;
         }
