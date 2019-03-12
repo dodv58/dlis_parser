@@ -40,14 +40,15 @@ byte_t *locate_free(value_t *value, int size) {
     return (value->u.raw + size);
 }
 void pack_lstr(sized_str_t *lstr, value_t *v) {
-	v->u.lstr.len = lstr->len;
+    int len = lstr->len; 
 	if (lstr->len > (int) (MAX_VALUE_SIZE - sizeof(sized_str_t))  ) {
-		fprintf(stderr, "sized string is too large for packing\n");
-		exit(-1);
+		fprintf(stderr, "sized string is too large for packing %d\n", lstr->len);
+        len = MAX_VALUE_SIZE - sizeof(sized_str_t);
 	}
+	v->u.lstr.len = len;
 	v->repcode = DLIS_IDENT;
     v->u.lstr.buff = locate_free(v, sizeof(sized_str_t));
-	memcpy(v->u.lstr.buff, lstr->buff, lstr->len);
+	memcpy(v->u.lstr.buff, lstr->buff, len);
 }
 void unpack_lstr(value_t *v, sized_str_t *lstr) {
 	lstr->len = v->u.lstr.len;

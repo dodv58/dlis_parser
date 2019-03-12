@@ -53,7 +53,7 @@ typedef struct objref_s {
     obname_t name;
 } objref_t;
 
-#define MAX_VALUE_SIZE 500 // TO BE FIXED
+#define MAX_VALUE_SIZE 2048 // TO BE FIXED
 struct value_s {
 	int repcode;
 	union {
