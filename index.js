@@ -12,7 +12,8 @@ var instance = {
     userInfo: null, 
     onEnd:null,
     wells: null,
-    numberOfWell: 0
+    numberOfWell: 0,
+    dataDir: ""
 }
 
 socket.on("message", function(buffer) {
@@ -23,6 +24,11 @@ socket.on("message", function(buffer) {
         // update dataset top/bottom
         for(const well of instance.wells){
             for(const dataset of well.datasets){
+                if(dataset.name == "EQUIPMENT"){
+                    dataset.curves.forEach(curve => {
+                        curve.fs.end();
+                    })
+                }
                 for(frame of myObj.frames){
                     if(dataset._id == obname2Str(frame)){
                         if(dataset.direction == 'DECREASING'){
@@ -80,6 +86,35 @@ function eflr_data( myObj) {
     switch(myObj.sending_data_type) {
     case sendingDataType._SET:
         setType = myObj.type;
+        if(setType == "EQUIPMENT"){
+            const dataset = {
+                _id: "EQUIPMENT",
+                name: "EQUIPMENT",
+                top: 0,
+                bottom: 0,
+                step: 1,
+                direction: "INCREASING",
+                curves: [],
+                params: []
+            }
+            const _curves = ['NAME', 'SERIAL-NUMBER', 'MAXIMUM-DIAMETER', 'HOLE-SIZE'];
+            _curves.forEach((name) => {
+                let _curve = {
+                    name: "EQUIPMENT_" + name,
+                    unit: "",
+                    startdepth: 0,
+                    stopdepth: 0,
+                    step: 1,
+                    path: instance.dataDir + "EQUIPMENT_" + name + ".txt",
+                    dimension: 1,
+                    description: "",
+                    type: "TEXT",
+                    fs: fs.createWriteStream(instance.dataDir + "EQUIPMENT_" + name + ".txt")
+                }
+                dataset.curves.push(_curve);
+            })
+            instance.wells[instance.numberOfWell - 1].datasets.push(dataset);
+        }
         break;
     case sendingDataType._OBJECT:
         myObj.name = myObj.name.trim();
@@ -168,6 +203,19 @@ function eflr_data( myObj) {
             myObj.path = myObj.path.replace(instance.userInfo.dataPath + '/', '');
             channels[obname2Str(myObj)] = myObj;
         }
+        else if(setType == "EQUIPMENT"){
+            console.log(JSON.stringify(myObj))
+            const lastDatasetIndex = instance.wells[instance.numberOfWell - 1].datasets.length - 1;
+            const dataset = instance.wells[instance.numberOfWell - 1].datasets[lastDatasetIndex];
+            dataset.bottom += 1;
+            for(const property in myObj){
+                for(const curve of dataset.curves){
+                    if("EQUIPMENT_" + property.toUpperCase() == curve.name){
+                        curve.fs.write(dataset.bottom + " " + myObj[property] + "\n");
+                    }
+                }
+            }
+        }
         break;
     }
     return 23;
@@ -187,6 +235,7 @@ function parseFile(fileName, userInfo, onEnd) {
         dataDir = __dirname + '/dlis_out/' + userInfo.username + '/' + Date.now() + '/';
     }
     mkdirSyncRecursive(dataDir);
+    instance.dataDir = dataDir;
     const temp = dlis.parseFile(fileName, dataDir);
 }
 
