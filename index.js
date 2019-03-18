@@ -23,6 +23,7 @@ socket.on("message", function(buffer) {
     if(myObj.ended){
         // update dataset top/bottom
         for(const well of instance.wells){
+            well.dataDir = instance.dataDir;
             for(const dataset of well.datasets){
                 if(dataset.name == "EQUIPMENT"){
                     dataset.curves.forEach(curve => {
