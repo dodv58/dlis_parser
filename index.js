@@ -105,7 +105,7 @@ function eflr_data( myObj) {
                     startdepth: 0,
                     stopdepth: 0,
                     step: 1,
-                    path: instance.dataDir + "EQUIPMENT_" + name + ".txt",
+                    path: instance.dataDir.replace(instance.userInfo.dataPath + '/', '') + "EQUIPMENT_" + name + ".txt",
                     dimension: 1,
                     description: "",
                     type: "TEXT",
@@ -204,7 +204,7 @@ function eflr_data( myObj) {
             channels[obname2Str(myObj)] = myObj;
         }
         else if(setType == "EQUIPMENT"){
-            console.log(JSON.stringify(myObj))
+            //console.log(JSON.stringify(myObj))
             const lastDatasetIndex = instance.wells[instance.numberOfWell - 1].datasets.length - 1;
             const dataset = instance.wells[instance.numberOfWell - 1].datasets[lastDatasetIndex];
             dataset.bottom += 1;
