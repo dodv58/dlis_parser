@@ -98,10 +98,10 @@ function eflr_data( myObj) {
                 curves: [],
                 params: []
             }
-            const _curves = ['NAME', 'SERIAL-NUMBER', 'MAXIMUM-DIAMETER', 'HOLE-SIZE'];
+            const _curves = ['NAME', 'TRADEMARK-NAME', 'STATUS', 'TYPE', 'SERIAL-NUMBER', 'LOCATION', 'HEIGHT', 'LENGTH', 'MAXIMUM-DIAMETER', 'MINIMUM-DIAMETER', 'VOLUME', 'WEIGHT', 'HOLE-SIZE', 'PRESSURE', 'TEMPERATURE', 'VERTICAL-DEPTH', 'RADIAL-DRIFT', 'ANGULAR-DRIFT'];
             _curves.forEach((name) => {
                 let _curve = {
-                    name: "EQUIPMENT_" + name,
+                    name: name,
                     unit: "",
                     startdepth: 0,
                     stopdepth: 0,
@@ -116,6 +116,37 @@ function eflr_data( myObj) {
             })
             instance.wells[instance.numberOfWell - 1].datasets.push(dataset);
         }
+        else if(setType == "TOOL"){
+            const dataset = {
+                _id: "TOOL",
+                name: "TOOL",
+                top: 0,
+                bottom: 0,
+                step: 1,
+                direction: "INCREASING",
+                curves: [],
+                params: []
+            }
+            const _curves = ['DESCRIPTION', 'TRADEMARK-NAME', 'GENERIC-NAME', 'PARTS', 'STATUS', 'CHANNELS', 'PARAMETERS'];
+            _curves.forEach((name) => {
+                let _curve = {
+                    name: name,
+                    unit: "",
+                    startdepth: 0,
+                    stopdepth: 0,
+                    step: 1,
+                    path: instance.dataDir.replace(instance.userInfo.dataPath + '/', '') + "TOOL_" + name + ".txt",
+                    dimension: 1,
+                    description: "",
+                    type: "TEXT",
+                    fs: fs.createWriteStream(instance.dataDir + "TOOL_" + name + ".txt")
+                }
+                dataset.curves.push(_curve);
+            })
+            instance.wells[instance.numberOfWell - 1].datasets.push(dataset);
+
+        }
+        
         break;
     case sendingDataType._OBJECT:
         myObj.name = myObj.name.trim();
@@ -204,15 +235,35 @@ function eflr_data( myObj) {
             myObj.path = myObj.path.replace(instance.userInfo.dataPath + '/', '');
             channels[obname2Str(myObj)] = myObj;
         }
-        else if(setType == "EQUIPMENT"){
-            //console.log(JSON.stringify(myObj))
+        else if(setType == "EQUIPMENT" || setType == "TOOL"){
+            console.log(JSON.stringify(myObj))
             const lastDatasetIndex = instance.wells[instance.numberOfWell - 1].datasets.length - 1;
             const dataset = instance.wells[instance.numberOfWell - 1].datasets[lastDatasetIndex];
             dataset.bottom += 1;
+            let line = "";
             for(const property in myObj){
                 for(const curve of dataset.curves){
-                    if("EQUIPMENT_" + property.toUpperCase() == curve.name){
-                        curve.fs.write(dataset.bottom + " " + myObj[property] + "\n");
+                    if(property.toUpperCase() == curve.name){
+                        if(property.toUpperCase() == "NAME"){
+                            curve.fs.write(dataset.bottom + " " + myObj[property] + "\n");
+                        }
+                        else {
+                            line = '';
+                            for(value of myObj[property]){
+                                if(typeof value == "object"){
+                                    for(p in value){
+                                        line += value[p] + '_';
+                                    }
+                                    line = line.slice(0, -1);
+                                }
+                                else {
+                                    line += value;
+                                }
+                                line += ';';
+                            }
+                            line = line.slice(0, -1);
+                            curve.fs.write(dataset.bottom + " " + line + "\n");
+                        }
                     }
                 }
             }
