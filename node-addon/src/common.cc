@@ -682,8 +682,10 @@ void serialize_value(binn* g_obj, char* key, value_t* val){
 }
 void serialize_list_add(binn* g_obj, value_t* val){
     switch(val->repcode) {
-        case DLIS_FSHORT:
         case DLIS_FSINGL:
+            binn_list_add_float(g_obj, val->u.double_val);
+            break;
+        case DLIS_FSHORT:
         case DLIS_FSING1:
         case DLIS_FSING2:
         case DLIS_ISINGL:

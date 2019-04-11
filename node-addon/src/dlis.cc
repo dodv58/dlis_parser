@@ -1250,10 +1250,10 @@ void write_to_curve_file(FILE* file, double index, binn* channel_values){
                     fprintf(file, " %llu", item.vuint64); 
                     break;
                 case BINN_FLOAT:
-                    fprintf(file, " %f", item.vfloat); 
+                    fprintf(file, " %.10e", item.vfloat); 
                     break;
                 case BINN_DOUBLE:
-                    fprintf(file, " %f", item.vdouble); 
+                    fprintf(file, " %.10e", item.vdouble); 
                     break;
                 case BINN_STRING:
                     fprintf(file, " %s", item.ptr);
