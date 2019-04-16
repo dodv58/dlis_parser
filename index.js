@@ -200,6 +200,7 @@ function eflr_data( myObj) {
                     const channel = channels[obname2Str(channelName)];
                     if(index == 0 && myObj['INDEX-TYPE']){
                         dataset.unit = channel['UNITS'] ? channel['UNITS'][0] : "";
+                        return;
                     }
                     let _dimension = 1;
                     let _type = 'NUMBER';
