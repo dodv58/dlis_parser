@@ -1222,7 +1222,7 @@ void write_to_curve_file(FILE* file, double index, binn* channel_values){
     fprintf(file, "%f", index);
     binn_list_foreach(channel_values, item) {
         if(is_null_value(&item)){
-            fprintf(file, " null");
+            fprintf(file, " ");
         } else {
             switch(binn_type(&item)){
                 case BINN_INT8:
@@ -1256,7 +1256,7 @@ void write_to_curve_file(FILE* file, double index, binn* channel_values){
                     fprintf(file, " %.10e", item.vdouble); 
                     break;
                 case BINN_STRING:
-                    fprintf(file, " %s", item.ptr);
+                    fprintf(file, " \"%s\"", item.ptr);
                     break;
                 case BINN_OBJECT:
                     printf("value is object");

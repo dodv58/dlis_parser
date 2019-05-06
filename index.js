@@ -203,7 +203,7 @@ function eflr_data( myObj) {
                         return;
                     }
                     let _dimension = 1;
-                    let _type = 'NUMBER';
+                    let _type = channel['REPRESENTATION-CODE'][0] < 19 ? 'NUMBER' : 'TEXT';
                     if(channel['DIMENSION']){
                         for(const x of channel['DIMENSION']){
                             _dimension *= x;

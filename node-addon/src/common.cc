@@ -786,6 +786,7 @@ double get_scalar_value(value_t* val){
 }
 
 bool is_null_value(binn* item){
+    //in the future, null value will be extract from PARAMETER set, name NULL or ABSE_FVAL
     double val = 0;
     switch(binn_type(item)){
         case BINN_INT8:
@@ -817,6 +818,9 @@ bool is_null_value(binn* item){
             break;
         case BINN_DOUBLE:
             val = item->vdouble;
+            break;
+        case BINN_STRING:
+            val = atof((const char*)item->ptr); 
             break;
     }
     return val == -9999 || val == -999 || val == -999.25;
