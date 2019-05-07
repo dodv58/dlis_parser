@@ -267,15 +267,16 @@ void* dlis_read(dlis_t *dlis, byte_t *in_buff, int in_count) {
     //printf("dlis_read: in_count:%d, byte_idx=%d, max_byte_idx:%d, buffer_idx=%d\n", in_count, dlis->byte_idx, dlis->max_byte_idx, dlis->buffer_idx);
     int b_idx = dlis->buffer_idx;
     if (dlis->max_byte_idx + in_count >= DLIS_BUFF_SIZE) {
+        int unparsed_len = dlis->parse_state.unparsed_buff_len > 0 ? dlis->parse_state.unparsed_buff_len : 0;
         dlis->buffer_idx = (b_idx + 1) % DLIS_BUFF_NUM;
         //printf("********** SWITCH BUFFER %d --> %d\n", b_idx, dlis->buffer_idx);
         // copy unparsed data to new buffer and set byte_idx & max_byte_idx properly
         byte_t *source = &dlis->buffer[b_idx][dlis->byte_idx];
         int len = dlis->max_byte_idx - dlis->byte_idx;
-        byte_t *dest = dlis->buffer[dlis->buffer_idx];
+        byte_t *dest = &dlis->buffer[dlis->buffer_idx][unparsed_len];
         memcpy(dest, source, len);
-        dlis->byte_idx = 0;
-        dlis->max_byte_idx = len;
+        dlis->byte_idx = unparsed_len;
+        dlis->max_byte_idx = len + unparsed_len;
     }
 
     b_idx = dlis->buffer_idx;
