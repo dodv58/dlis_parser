@@ -1306,6 +1306,7 @@ void *do_parse(void *arguments) {
     printf("Finish reading file\n");
     channel_t * iter = &dlis.channels;
     while(iter != NULL){
+        fflush(iter->fp);
         fclose(iter->fp);
         iter = iter->next;
     }
