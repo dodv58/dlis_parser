@@ -1268,6 +1268,7 @@ void write_to_curve_file(FILE* file, double index, binn* channel_values){
         }
     }
     fprintf(file, "\n");
+    fflush(file);
 }
 
 void dump(dlis_t *dlis) {
