@@ -681,9 +681,9 @@ int parse_iflr_data(dlis_t* dlis) {
     //printf("==> lrs_len %d lrs_byte_cnt %d\n", dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt);
     if(dlis->parse_state.lrs_type != EOD){
         if (state->parsing_dimension <= 0 || state->parsing_value_cnt >= state->parsing_dimension) {
-            if(dlis->current_channel != NULL){
-                state->parsing_repcode = dlis->current_channel->repcode;
-                state->parsing_dimension = dlis->current_channel->dimension;
+            if(dlis->current_frame->current_channel != NULL){
+                state->parsing_repcode = dlis->current_frame->current_channel->repcode;
+                state->parsing_dimension = dlis->current_frame->current_channel->dimension;
                 state->parsing_value_cnt = 0;
             }else {
                 state->parsing_repcode = -1;
@@ -712,7 +712,7 @@ int parse_iflr_data(dlis_t* dlis) {
             }
 
             // saving first channel as frame index
-            if(dlis->current_channel->index == 1){
+            if(dlis->current_frame->current_channel->index == 1){
                 double _idx = get_scalar_value(&val);
                 if(dlis->current_frame->index_type){
                     if(state->parsing_frame_index == 1){ //save top/bottom index
@@ -1043,7 +1043,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         dlis->current_channel->name[obname.name.len] = '\0';
 
         sprintf(filepath, "%s%d-%d-%.*s.txt", dlis->out_dir, obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
-		dlis->current_channel->fp = fopen(filepath, "w+");	
+		dlis->current_channel->fp = fopen(filepath, "w");	
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
     //sending data to js 
@@ -1178,7 +1178,6 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
 void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
     dlis->current_frame = &dlis->frames;
     
-    dlis->current_channel = &dlis->channels;
     while(dlis->current_frame != NULL){
         if(dlis->current_frame->origin == frame_name->origin && 
             dlis->current_frame->copy_number == frame_name->copy_number &&
@@ -1195,7 +1194,7 @@ void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
     //printf("current frame: origin %d copy number %d name %s\n", dlis->current_frame->origin, 
     //            dlis->current_frame->copy_number, dlis->current_frame->name);
     
-    dlis->current_channel = dlis->current_frame->channels;
+    dlis->current_frame->current_channel = dlis->current_frame->channels;
 
     //send frame header to js
     //binn* g_obj = binn_object();
@@ -1212,8 +1211,8 @@ void on_iflr_data(dlis_t* dlis){
     parse_state_t* state = &dlis->parse_state;
     
     //write to file
-    //printf("on_iflr_data channel %s\n", dlis->current_channel->name);
-    write_to_curve_file(dlis->current_channel->fp, state->parsing_frame_index, state->parsing_iflr_values);
+    //printf("on_iflr_data channel %s\n", dlis->current_frame->current_channel->name);
+    write_to_curve_file(dlis->current_frame->current_channel->fp, state->parsing_frame_index, state->parsing_iflr_values);
     __binn_free(state->parsing_iflr_values);
 }
 
@@ -1268,7 +1267,6 @@ void write_to_curve_file(FILE* file, double index, binn* channel_values){
         }
     }
     fprintf(file, "\n");
-    fflush(file);
 }
 
 void dump(dlis_t *dlis) {
@@ -1368,7 +1366,7 @@ void initSocket(dlis_t* dlis){
 void next_state(dlis_t* dlis){
     int lrs_trail_len = 0;
 	
-    //printf("--next_state(): %s vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, trail_len %d, channel %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, trailing_len(dlis), dlis->current_channel ? dlis->current_channel->index : -1);
+    //printf("--next_state(): %s vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, trail_len %d, channel %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, trailing_len(dlis), dlis->current_frame->current_channel ? dlis->current_frame->current_channel->index : -1);
 
 
 	switch(dlis->parse_state.code){
@@ -1396,7 +1394,7 @@ void next_state(dlis_t* dlis){
                 }
 			}
 			else {
-                if(!dlis->current_channel || lrs_attr_is_first_lrs(&dlis->parse_state)){
+                if(!dlis->current_frame->current_channel || lrs_attr_is_first_lrs(&dlis->parse_state)){
                     dlis->parse_state.code = EXPECTING_IFLR_HEADER;
                 }
                 else {
@@ -1493,7 +1491,7 @@ void next_state(dlis_t* dlis){
             //printf("... max_byte_idx %d byte_idx %d lrs_len %d lrs_byte_cnt %d trail_len %d \n", 
             //    dlis->max_byte_idx, dlis->byte_idx, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, lrs_trail_len);
             int remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt;
-            if ( remain_bytes <= lrs_trail_len || !dlis->current_channel || dlis->parse_state.parsing_dimension <= 0) {
+            if ( remain_bytes <= lrs_trail_len || !dlis->current_frame->current_channel || dlis->parse_state.parsing_dimension <= 0) {
                 if(remain_bytes > lrs_trail_len){
                     parse_state_t *state = &dlis->parse_state;
 
@@ -1544,7 +1542,7 @@ void parse(dlis_t *dlis) {
 
     while (1) {
         // check if a lrs segment is in buffer. Get padding length right away and mark that it has length
-        //printf("==> parse loop: %s, max_byte_idx:%d, byte_idx:%d, vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, channel %d, trail_len %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx, dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, dlis->current_channel ? dlis->current_channel->index : -1, trailing_len(dlis));
+        //printf("==> parse loop: %s, max_byte_idx:%d, byte_idx:%d, vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, channel %d, trail_len %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx, dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, dlis->current_frame->current_channel ? dlis->current_frame->current_channel->index : -1, trailing_len(dlis));
         if(trailing_len(dlis) < 0) goto end_loop;
 
         switch(dlis->parse_state.code) {
@@ -1783,8 +1781,8 @@ void parse(dlis_t *dlis) {
                 //callback
                 if(dlis->parse_state.parsing_value_cnt >= dlis->parse_state.parsing_dimension) {
                     dlis->on_iflr_data_f(dlis);
-                    if(dlis->current_channel != NULL){
-                        dlis->current_channel = dlis->current_channel->f_next;
+                    if(dlis->current_frame->current_channel != NULL){
+                        dlis->current_frame->current_channel = dlis->current_frame->current_channel->f_next;
                     }
                 }
                 else {
