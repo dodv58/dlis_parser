@@ -90,6 +90,7 @@ typedef enum parse_state_code_e parse_state_code_t;
 
 typedef struct channel_s {
     int index;// index of channel in frame
+    unsigned int seq_num;
     unsigned int origin;
     unsigned int copy_number;
     char name[100];
@@ -101,6 +102,7 @@ typedef struct channel_s {
 } channel_t;
 
 typedef struct frame_s {
+    unsigned int seq_num;
     unsigned int origin;
     unsigned int copy_number;
     bool index_type; // false: using frame index, true: using first channel 
@@ -149,9 +151,9 @@ struct parse_state_s {
     binn* parsing_iflr_values;
     double parsing_frame_index; 
 
-    byte_t unparsed_buff[500];
     int unparsed_buff_len;
-    
+    int seq_num; 
+    byte_t unparsed_buff[10000];
 };
 typedef struct parse_state_s parse_state_t;
 

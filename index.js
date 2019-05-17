@@ -58,6 +58,7 @@ const sendingDataType =  {
 
 let setType;
 let channels = {};
+let seq_num = 0;
 function safeObname2Str(obj) {
     if (typeof obj === "object" && Number.isInteger(obj.origin) && Number.isInteger(obj.copy_number) && obj.name) {
         return obname2Str(obj);
@@ -65,7 +66,10 @@ function safeObname2Str(obj) {
     return obj;
 }
 function obname2Str(obj) {
-    return obj.origin + "-" + obj.copy_number + "-" + obj.name;
+    if(!obj.seq_num){
+        return seq_num + "-" + obj.origin + "-" + obj.copy_number + "-" + obj.name;
+    }
+    else return obj.seq_num + "-" + obj.origin + "-" + obj.copy_number + "-" + obj.name;
 }
 
 function mkdirSyncRecursive(path){
@@ -153,6 +157,7 @@ function eflr_data( myObj) {
         //console.log(setType + " ===> " + JSON.stringify(myObj, null, 2));
         const objName = obname2Str(myObj);
         if(setType == "FILE-HEADER"){
+            seq_num = parseInt(myObj["SEQUENCE-NUMBER"]);
             instance.numberOfWell += 1;
         } else if(setType == "ORIGIN"){
             if(instance.wells.length < instance.numberOfWell){

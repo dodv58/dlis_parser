@@ -123,6 +123,11 @@ void on_eflr_component_attrib_value(dlis_t* dlis, sized_str_t* label, value_t *v
 void on_iflr_header(dlis_t* dlis, obname_t* name, uint32_t index);
 void on_iflr_data (dlis_t* dlis);
 
+bool sized_str_cmp(sized_str_t* sstr, const char* str);
+bool obname_cmp(obname_t *obj1, obname_t* obj2);
+bool channel_obname_cmp(channel_t* chan, obname_t* obn);
+bool frame_obname_cmp(frame_t* frame, obname_t* obn);
+
 char g_buff[1024];
 int g_idx = 0;
 
@@ -203,6 +208,7 @@ void on_iflr_header_default(obname_t* frame_name, uint32_t index) {
     app_print(_eflr_data_, g_buff);
 }
 void frame_init(frame_t* frame){
+    frame->seq_num = 0;
     frame->origin = 0;
     frame->copy_number = 0;
     frame->index_type = false;
@@ -214,6 +220,7 @@ void frame_init(frame_t* frame){
     frame->index_max = 1;
 }
 void channel_init(channel_t* channel){
+    channel->seq_num = 0;
     channel->index = 0;
     channel->origin = 0;
     channel->copy_number = 0;
@@ -233,6 +240,7 @@ void dlis_init(dlis_t *dlis) {
     dlis->lrs_idx = 0;
 
     dlis->parse_state.code = EXPECTING_SUL;
+    dlis->parse_state.seq_num = 0;
     //bzero(dlis, sizeof(dlis_t));
     /*
     dlis->on_sul_f = &on_sul_default;
@@ -1009,7 +1017,7 @@ void on_eflr_component_set(dlis_t* dlis, sized_str_t *type, sized_str_t *name) {
 }
 
 void on_eflr_component_object(dlis_t* dlis, obname_t obname){
-    //printf("==> on_eflr_component_object: origin: %d, copy_number %d, name %.*s\n", obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
+    //printf("==> on_eflr_component_object: seq_num %d origin: %d, copy_number %d, name %.*s, set %s\n", dlis->parse_state.seq_num, obname.origin, obname.copy_number, obname.name.len, obname.name.buff, dlis->parse_state.parsing_set_type);
     parse_state_t* state = &dlis->parse_state;
     //save frame and channel data for parsing fdata
     if(strcmp(state->parsing_set_type, "FRAME") == 0){
@@ -1020,6 +1028,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
             dlis->current_frame = dlis->current_frame->next;
         }
         frame_init(dlis->current_frame);
+        dlis->current_frame->seq_num = state->seq_num;
         dlis->current_frame->origin = obname.origin;
         dlis->current_frame->copy_number = obname.copy_number;
         memmove(dlis->current_frame->name, obname.name.buff, obname.name.len) ;
@@ -1037,12 +1046,13 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
             dlis->current_channel = dlis->current_channel->next;
         }
         channel_init(dlis->current_channel);
+        dlis->current_channel->seq_num = state->seq_num;
         dlis->current_channel->origin = obname.origin;
         dlis->current_channel->copy_number = obname.copy_number;
         memmove(dlis->current_channel->name, obname.name.buff, obname.name.len);
         dlis->current_channel->name[obname.name.len] = '\0';
 
-        sprintf(filepath, "%s%d-%d-%.*s.txt", dlis->out_dir, obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
+        sprintf(filepath, "%s%d-%d-%d-%.*s.txt", dlis->out_dir, state->seq_num, obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
 		dlis->current_channel->fp = fopen(filepath, "w");	
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
@@ -1072,6 +1082,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
     }
     state->parsing_obj_binn = binn_object();
     binn_object_set_int32(state->parsing_obj_binn, (char*)"sending_data_type", _OBJECT);
+    binn_object_set_int32(state->parsing_obj_binn, (char*)"seq_num", state->seq_num);
     binn_object_set_int32(state->parsing_obj_binn, (char*)"origin", obname.origin);
     binn_object_set_int32(state->parsing_obj_binn, (char*)"copy_number", obname.copy_number);
     serialize_sized_str(state->parsing_obj_binn, (char*)"name", &obname.name);
@@ -1098,8 +1109,25 @@ void on_eflr_component_attrib(dlis_t* dlis, long count, int repcode, sized_str_t
         }
 }
 
+bool sized_str_cmp(sized_str_t* sstr, const char* str){
+    if(sstr->len != strlen(str)){
+        return 0;
+    }else if(strncmp((const char*) sstr->buff, str, sstr->len) == 0){
+        return 1;
+    }else return 0;
+}
+
 void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *val) {
     parse_state_t* state = &dlis->parse_state;
+    //save logical file sequence number
+    if(strcmp(state->parsing_set_type, "FILE-HEADER") == 0){
+        if(sized_str_cmp(label, "SEQUENCE-NUMBER")) {
+            printf("SEQUENCE-NUMBER: %.*s\n", val->u.lstr.len, val->u.lstr.buff);
+            char _str[20] = {0};
+            sprintf(_str, "%.*s", 10, val->u.lstr.buff);
+            state->seq_num = atoi(_str);
+        }
+    }
     //save frame and channel data for parsing fdata
     if(strcmp(state->parsing_set_type, "CHANNEL") == 0) {
         if(strncmp((const char*)label->buff, "DIMENSION", 9) == 0) {
@@ -1115,20 +1143,18 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
         channel_t* curr_channel = &dlis->channels;
         //printf("-->(%d-%d-%.*s)\n", val->u.obname_val.origin, val->u.obname_val.copy_number, val->u.obname_val.name.len, val->u.obname_val.name.buff);
         while(curr_channel != NULL) {
-            if(curr_channel->origin == val->u.obname_val.origin &&
-                curr_channel->copy_number == val->u.obname_val.copy_number &&
-                strlen(curr_channel->name) == val->u.obname_val.name.len &&
-                strncmp(curr_channel->name, (const char*)val->u.obname_val.name.buff, val->u.obname_val.name.len) == 0){
-                    if(dlis->current_frame->channels == NULL){
-                        dlis->current_frame->channels = curr_channel;
-                        dlis->current_frame->channels->index = 1; // set first channel in frame
-                    }else {
-                        curr_channel->index = dlis->current_frame->current_channel->index + 1;
-                        dlis->current_frame->current_channel->f_next = curr_channel;
-                    }
-                    dlis->current_frame->current_channel = curr_channel;
-                    break;
+            if(curr_channel->seq_num == state->seq_num &&
+                channel_obname_cmp(curr_channel, &(val->u.obname_val))){
+                if(dlis->current_frame->channels == NULL){
+                    dlis->current_frame->channels = curr_channel;
+                    dlis->current_frame->channels->index = 1; // set first channel in frame
+                }else {
+                    curr_channel->index = dlis->current_frame->current_channel->index + 1;
+                    dlis->current_frame->current_channel->f_next = curr_channel;
                 }
+                dlis->current_frame->current_channel = curr_channel;
+                break;
+            }
             curr_channel = curr_channel->next;
         }
     }
@@ -1179,9 +1205,8 @@ void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
     dlis->current_frame = &dlis->frames;
     
     while(dlis->current_frame != NULL){
-        if(dlis->current_frame->origin == frame_name->origin && 
-            dlis->current_frame->copy_number == frame_name->copy_number &&
-            strncmp(dlis->current_frame->name, (const char*)frame_name->name.buff, frame_name->name.len) == 0){
+        if(dlis->current_frame->seq_num == dlis->parse_state.seq_num &&
+            frame_obname_cmp(dlis->current_frame, frame_name)){
             break;
         }
         dlis->current_frame = dlis->current_frame->next;
@@ -1361,6 +1386,27 @@ void initSocket(dlis_t* dlis){
         fprintf(stderr, "Error connecting socket\n");
     }
     fprintf(stderr, "connect done %d\n", rc);
+}
+
+bool obname_cmp(obname_t *obj1, obname_t* obj2){
+    return obj1->origin == obj2->origin && 
+            obj1->copy_number == obj2->copy_number && 
+            obj1->name.len == obj2->name.len &&
+            strncmp((const char*)obj1->name.buff, (const char*)obj2->name.buff, obj1->name.len) == 0;
+}
+
+bool channel_obname_cmp(channel_t* chan, obname_t* obn){ //return 1 if name of channel == obname
+    return chan->origin == obn->origin &&
+            chan->copy_number == obn->copy_number &&
+            strlen(chan->name) == obn->name.len &&
+            strncmp(chan->name, (const char*)obn->name.buff, obn->name.len) == 0;
+}
+
+bool frame_obname_cmp(frame_t* frame, obname_t* obn){ //return 1 if name of frame == obname
+    return frame->origin == obn->origin &&
+            frame->copy_number == obn->copy_number &&
+            strlen(frame->name) == obn->name.len &&
+            strncmp(frame->name, (const char*)obn->name.buff, obn->name.len) == 0;
 }
 
 void next_state(dlis_t* dlis){
