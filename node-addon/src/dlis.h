@@ -152,8 +152,8 @@ struct parse_state_s {
     double parsing_frame_index; 
 
     int unparsed_buff_len;
-    int seq_num; 
-    byte_t unparsed_buff[10000];
+    unsigned int seq_num; 
+    byte_t unparsed_buff[100000];
 };
 typedef struct parse_state_s parse_state_t;
 

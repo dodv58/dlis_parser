@@ -637,7 +637,7 @@ int parse_iflr_header(dlis_t *dlis, obname_t* frame_name, uint32_t* frame_index)
     int lrs_remain = state->lrs_len - state->lrs_byte_cnt- trailing_len(dlis);
     int avail_bytes = lrs_remain <= dlis->max_byte_idx - current_byte_idx ? lrs_remain : dlis->max_byte_idx - current_byte_idx;
     int nbytes = parse_obname(&p_buffer[current_byte_idx], avail_bytes, frame_name);
-    //printf("---FRAME HEADER obname len: %d\n", nbytes );
+    //printf("---FRAME HEADER obname len: %d name %.*s\n", nbytes, frame_name->name.len, frame_name->name.buff );
 
     if(nbytes < 0) return -1;
     current_byte_idx += nbytes;
@@ -649,7 +649,7 @@ int parse_iflr_header(dlis_t *dlis, obname_t* frame_name, uint32_t* frame_index)
         nbytes = parse_ushort(&p_buffer[current_byte_idx], &lr_type);
         if(nbytes < 0) return -1;
         current_byte_idx += nbytes;
-        //printf("---FRAME HEADER len: %d", current_byte_idx - dlis->byte_idx );
+        //printf("---FRAME HEADER EOD len: %d", current_byte_idx - dlis->byte_idx );
     }else {
         //iflr read frame index
         nbytes = parse_uvari(&p_buffer[current_byte_idx], avail_bytes, frame_index);
@@ -712,7 +712,7 @@ int parse_iflr_data(dlis_t* dlis) {
         for(int i = state->parsing_value_cnt; i < state->parsing_dimension; i++){
             value_invalidate(&val);
             avail_bytes = dlis->max_byte_idx - current_byte_idx;
-            lrs_remain_bytes = state->lrs_len - lrs_byte_cnt_tmp;
+            lrs_remain_bytes = state->lrs_len - trailing_len(dlis) - lrs_byte_cnt_tmp;
             if(lrs_remain_bytes < avail_bytes) avail_bytes = lrs_remain_bytes;
             len = parse_value(&p_buffer[current_byte_idx], avail_bytes, state->parsing_repcode, &val);
             if(len <= 0) {
@@ -1110,7 +1110,7 @@ void on_eflr_component_attrib(dlis_t* dlis, long count, int repcode, sized_str_t
 }
 
 bool sized_str_cmp(sized_str_t* sstr, const char* str){
-    if(sstr->len != strlen(str)){
+    if(sstr->len != (int)strlen(str)){
         return 0;
     }else if(strncmp((const char*) sstr->buff, str, sstr->len) == 0){
         return 1;
@@ -1398,14 +1398,14 @@ bool obname_cmp(obname_t *obj1, obname_t* obj2){
 bool channel_obname_cmp(channel_t* chan, obname_t* obn){ //return 1 if name of channel == obname
     return chan->origin == obn->origin &&
             chan->copy_number == obn->copy_number &&
-            strlen(chan->name) == obn->name.len &&
+            (int) strlen(chan->name) == obn->name.len &&
             strncmp(chan->name, (const char*)obn->name.buff, obn->name.len) == 0;
 }
 
 bool frame_obname_cmp(frame_t* frame, obname_t* obn){ //return 1 if name of frame == obname
     return frame->origin == obn->origin &&
             frame->copy_number == obn->copy_number &&
-            strlen(frame->name) == obn->name.len &&
+            (int) strlen(frame->name) == obn->name.len &&
             strncmp(frame->name, (const char*)obn->name.buff, obn->name.len) == 0;
 }
 
@@ -1588,7 +1588,7 @@ void parse(dlis_t *dlis) {
 
     while (1) {
         // check if a lrs segment is in buffer. Get padding length right away and mark that it has length
-        //printf("==> parse loop: %s, max_byte_idx:%d, byte_idx:%d, vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, channel %d, trail_len %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx, dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, dlis->current_frame->current_channel ? dlis->current_frame->current_channel->index : -1, trailing_len(dlis));
+        //printf("==> parse loop: %s, max_byte_idx:%d, byte_idx:%d, vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, channel %d, trail_len %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->max_byte_idx, dlis->byte_idx, dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, dlis->current_frame ? (dlis->current_frame->current_channel ? dlis->current_frame->current_channel->index : 1) : -1, trailing_len(dlis));
         if(trailing_len(dlis) < 0) goto end_loop;
 
         switch(dlis->parse_state.code) {
