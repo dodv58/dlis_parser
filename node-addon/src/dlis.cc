@@ -238,6 +238,9 @@ void dlis_init(dlis_t *dlis) {
     dlis->vr_idx = 0;
     dlis->lr_idx = 0;
     dlis->lrs_idx = 0;
+    //30/05/2019
+    dlis->nType = 0;
+    //30/05/2019
 
     dlis->parse_state.code = EXPECTING_SUL;
     dlis->parse_state.seq_num = 0;
@@ -303,6 +306,21 @@ int parse_sul(dlis_t *dlis) {
     if (dlis->max_byte_idx - dlis->byte_idx < SUL_LEN) return -1;
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
     byte_t *sul = &(p_buffer[dlis->byte_idx]);
+    int bytes_read = 0;
+    
+    //30/05/2019
+    int count = 0;
+    for(int i = 0; i < 12; i++){
+        if(sul[i] == 0){
+            count++;
+        }
+    }
+    if(count >=6) dlis->nType = 1;
+    if(dlis->nType){
+        sul += 12;
+        bytes_read += 12;
+    }
+    //30/05/2019
 
     // Check & Process SUL
     //hexDump("--SUL--\n", sul, SUL_LEN);
@@ -316,6 +334,8 @@ int parse_sul(dlis_t *dlis) {
     trim(structure, 6, (const char *)(sul + 9));
     trim(max_rec_len, 5, (const char *)(sul + 15));
     trim(ssi, 60, (const char *)(sul + 20));
+
+    bytes_read += SUL_LEN;
     
     // check SUL
     if (!is_integer(seq, strlen(seq)) || !is_integer(max_rec_len, strlen(max_rec_len))) {
@@ -328,17 +348,32 @@ int parse_sul(dlis_t *dlis) {
 	
 	// Fire callback on_sul
     dlis->on_sul_f(seq_number, version, structure, max_record_length, ssi);
+    //30/05/2019
+    if(dlis->nType){
+        bytes_read += 12;
+    }
+    //30/05/2019
 
-    return SUL_LEN;
+    return bytes_read;
 }
 
 int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *vr_version) {
     //printf("parse_vr_header:vr_idx %d, max_byte_idx %d, byte_idx %d\n", dlis->vr_idx, dlis->max_byte_idx, dlis->byte_idx);
-    
-    if (dlis->max_byte_idx - dlis->byte_idx < VR_HEADER_LEN) 
-        return -1;
     int current_byte_idx = dlis->byte_idx;
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
+    //30/05/2019
+    if(dlis->nType){
+        if(dlis->max_byte_idx - current_byte_idx < 12){
+            return -1;
+        }
+        else {
+            current_byte_idx += 12;
+        }
+    }
+    //30/05/2019
+    
+    if (dlis->max_byte_idx - current_byte_idx < VR_HEADER_LEN) 
+        return -1;
     //hexDump("VR HEADER: ", &p_buffer[current_byte_idx], 10);
 
     value_t val;
@@ -358,14 +393,16 @@ int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *vr_version) {
             "Invalid visible record header: expecting 0xFF but we got 0x%x\n", 
             p_buffer[current_byte_idx]);
         //hexDump("----\n", &p_buffer[current_byte_idx - 2], 10);
-        exit(-1);
+        //exit(-1);
+        return -1;
     }
     current_byte_idx++;
 
     // parse version
 	parse_ushort(&(p_buffer[current_byte_idx]), vr_version);
+    current_byte_idx++;
 
-    return VR_HEADER_LEN;
+    return current_byte_idx - dlis->byte_idx;
 }
 
 int parse_lrs_header(dlis_t *dlis, uint32_t *lrs_len, byte_t *lrs_attr, uint32_t *lrs_type) {
@@ -742,11 +779,13 @@ int parse_iflr_data(dlis_t* dlis) {
         }
     }
     else {
+        /*
         printf("parse_iflr_data: EOD\n");
         uint32_t lr_type = 0;
         len = parse_ushort(&p_buffer[current_byte_idx], &lr_type);
         if(len <= 0) return -1;
         current_byte_idx += len;
+        */
     }
     return current_byte_idx - dlis->byte_idx;
 }
@@ -921,11 +960,13 @@ void eflr_set_template_object_queue(dlis_t* dlis, sized_str_t *label, long count
 		exit(-1);
 	}
 	eflr_template_object_t *templt = dlis->parse_state.templt;
-	templt[write_idx].label = *label;
+	templt[write_idx].label.len = label->len;
+	templt[write_idx].label.buff = label->buff;
+	templt[write_idx].unit.len = unit->len;
+	templt[write_idx].unit.buff = unit->buff;
 	if (repcode < 0) repcode = DLIS_IDENT;
 	templt[write_idx].repcode = repcode;
 	templt[write_idx].count = (count < 0)?1:count;
-	templt[write_idx].unit = *unit;
 	//memcpy(&templt[write_idx].default_value, default_val, sizeof(value_t));
 	dlis->parse_state.templt_write_idx++;
     //printf("********queue template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
@@ -946,6 +987,7 @@ void eflr_set_template_object_get(dlis_t* dlis, sized_str_t *label, long *count,
 	*repcode = templt[read_idx].repcode;
 	*count = templt[read_idx].count;
 	*unit = templt[read_idx].unit;
+    
     //printf("******** get template object: %d %d\n", dlis->parse_state.templt_write_idx, dlis->parse_state.templt_read_idx);
 	//``memcpy(default_val, &templt[read_idx].default_value, sizeof(value_t));
 }
@@ -1031,6 +1073,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         dlis->current_frame->seq_num = state->seq_num;
         dlis->current_frame->origin = obname.origin;
         dlis->current_frame->copy_number = obname.copy_number;
+
         memmove(dlis->current_frame->name, obname.name.buff, obname.name.len) ;
         dlis->current_frame->name[obname.name.len] = '\0';
         
@@ -1038,24 +1081,50 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
     }
      
     char filepath[4096];
-    if(strncmp(state->parsing_set_type, "CHANNEL", strlen(state->parsing_set_type)) == 0) {
-        if(dlis->current_channel == NULL){
-            dlis->current_channel = &dlis->channels;
-        }else {
-            dlis->current_channel->next = (channel_t*) malloc(sizeof(channel_t));
-            dlis->current_channel = dlis->current_channel->next;
+    //30/05/2019
+    if(strcmp(state->parsing_set_type, "CHANNEL") == 0) {
+        frame_t* curr_frame = &dlis->frames;
+        while(curr_frame != NULL){
+            channel_t* c_channel = curr_frame->channels;
+            while(c_channel != NULL){
+                if(channel_obname_cmp(c_channel, &obname) == 1){
+                    if(dlis->current_channel == NULL){
+                        dlis->channels = c_channel;
+                        dlis->current_channel = dlis->channels;
+                    }
+                    else {
+                        dlis->current_channel->next = c_channel;
+                        dlis->current_channel = dlis->current_channel->next;
+                    }
+                    break; 
+                }
+                c_channel = c_channel->f_next;
+            }
+            if(c_channel != NULL) break;
+            curr_frame = curr_frame->next;
         }
-        channel_init(dlis->current_channel);
-        dlis->current_channel->seq_num = state->seq_num;
-        dlis->current_channel->origin = obname.origin;
-        dlis->current_channel->copy_number = obname.copy_number;
-        memmove(dlis->current_channel->name, obname.name.buff, obname.name.len);
-        dlis->current_channel->name[obname.name.len] = '\0';
+        if(curr_frame == NULL){
+            if(dlis->current_channel == NULL){
+                dlis->channels = (channel_t*) malloc(sizeof(channel_t));
+                channel_init(dlis->channels);
+                dlis->current_channel = dlis->channels;
+            }else {
+                dlis->current_channel->next = (channel_t*) malloc(sizeof(channel_t));
+                dlis->current_channel = dlis->current_channel->next;
+            }
+            channel_init(dlis->current_channel);
+            dlis->current_channel->seq_num = state->seq_num;
+            dlis->current_channel->origin = obname.origin;
+            dlis->current_channel->copy_number = obname.copy_number;
+            memmove(dlis->current_channel->name, obname.name.buff, obname.name.len);
+            dlis->current_channel->name[obname.name.len] = '\0';
 
+        }
         sprintf(filepath, "%s%d-%d-%d-%.*s.txt", dlis->out_dir, state->seq_num, obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
-		dlis->current_channel->fp = fopen(filepath, "w");	
+        dlis->current_channel->fp = fopen(filepath, "w");	
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
+    //30/05/2019
     //sending data to js 
     /*
     if(strcmp(state->parsing_set_type, "FRAME") == 0 || 
@@ -1140,7 +1209,7 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
     if(strcmp(state->parsing_set_type, "FRAME") == 0 &&
         strncmp((const char*)label->buff, "CHANNELS", 8) == 0){
         //find channel with obname (val) in channels list
-        channel_t* curr_channel = &dlis->channels;
+        channel_t* curr_channel = dlis->channels;
         //printf("-->(%d-%d-%.*s)\n", val->u.obname_val.origin, val->u.obname_val.copy_number, val->u.obname_val.name.len, val->u.obname_val.name.buff);
         while(curr_channel != NULL) {
             if(curr_channel->seq_num == state->seq_num &&
@@ -1157,6 +1226,27 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
             }
             curr_channel = curr_channel->next;
         }
+        //30/02/2019
+        if(curr_channel == NULL){
+            // Frame comes first
+            if(dlis->current_frame->channels == NULL){
+                dlis->current_frame->channels = (channel_t*) malloc(sizeof(channel_t));
+                channel_init(dlis->current_frame->channels);
+                dlis->current_frame->current_channel = dlis->current_frame->channels;
+                dlis->current_frame->current_channel->index = 1;
+            }
+            else {
+                dlis->current_frame->current_channel->f_next = (channel_t*) malloc(sizeof(channel_t));
+                channel_init(dlis->current_frame->current_channel->f_next);
+                dlis->current_frame->current_channel->f_next->index = dlis->current_frame->current_channel->index + 1;
+                dlis->current_frame->current_channel = dlis->current_frame->current_channel->f_next;
+            }
+            dlis->current_frame->current_channel->seq_num = state->seq_num;
+            dlis->current_frame->current_channel->origin = val->u.obname_val.origin;
+            dlis->current_frame->current_channel->copy_number = val->u.obname_val.copy_number;
+            memmove(dlis->current_frame->current_channel->name, val->u.obname_val.name.buff, val->u.obname_val.name.len);
+        }
+        //30/02/2019
     }
     //send data to js
         if(state->parsing_obj_values == NULL){
@@ -1218,7 +1308,6 @@ void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
     }
     //printf("current frame: origin %d copy number %d name %s\n", dlis->current_frame->origin, 
     //            dlis->current_frame->copy_number, dlis->current_frame->name);
-    
     dlis->current_frame->current_channel = dlis->current_frame->channels;
 
     //send frame header to js
@@ -1328,7 +1417,7 @@ void *do_parse(void *arguments) {
         dlis_read(&dlis, buffer, byte_read);
     }
     printf("Finish reading file\n");
-    channel_t * iter = &dlis.channels;
+    channel_t * iter = dlis.channels;
     while(iter != NULL){
         fflush(iter->fp);
         fclose(iter->fp);
@@ -1412,7 +1501,7 @@ bool frame_obname_cmp(frame_t* frame, obname_t* obn){ //return 1 if name of fram
 void next_state(dlis_t* dlis){
     int lrs_trail_len = 0;
 	
-    //printf("--next_state(): %s vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, trail_len %d, channel %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, trailing_len(dlis), dlis->current_frame->current_channel ? dlis->current_frame->current_channel->index : -1);
+    //printf("--next_state(): %s vr_len %d, vr_byte_cnt %d, lrs_len %d, lrs_byte_cnt %d, trail_len %d, channel %d\n", PARSE_STATE_NAMES[dlis->parse_state.code], dlis->parse_state.vr_len, dlis->parse_state.vr_byte_cnt, dlis->parse_state.lrs_len, dlis->parse_state.lrs_byte_cnt, trailing_len(dlis), dlis->current_frame ? (dlis->current_frame->current_channel ? dlis->current_frame->current_channel->index : 1) : -1);
 
 
 	switch(dlis->parse_state.code){
@@ -1695,7 +1784,6 @@ void parse(dlis_t *dlis) {
 				count = 1;
 				repcode = DLIS_IDENT;
                 dlis->parse_state.attrib_value_cnt = 0;
-
                 if (dlis->parse_state.templt_read_idx >= 0) {
                     eflr_set_template_object_get(dlis, &dlis->parse_state.attrib_label, &count, &repcode, &unit);
                 }

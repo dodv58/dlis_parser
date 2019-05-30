@@ -7,6 +7,7 @@
 
 
 #define ENDPOINT "ipc:///tmp/dlis-socket-"
+#define ASSERT(cond) if ( !(cond) ) exit(-1)
 
 enum lrs_iflr_type_e {
     FDATA = 0,
@@ -77,7 +78,7 @@ typedef struct eflr_template_object_s {
     unsigned int repcode;
     unsigned int count;
     sized_str_t unit;
-    value_t default_value;
+    //value_t default_value;  Do not support default value. Program will run to err is remove comment 30/05/2019
 } eflr_template_object_t;
 
 typedef enum lrs_iflr_type_e lrs_iflr_type_t;
@@ -189,8 +190,11 @@ struct dlis_s {
 
     frame_t frames;
     frame_t* current_frame;
-    channel_t channels;
+    channel_t* channels;
     channel_t* current_channel;
+    //30/05/2019
+    int nType;
+    //30/05/2019
 
     char out_dir[4000];
 };

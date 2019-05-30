@@ -25,9 +25,10 @@ socket.on("message", function(buffer) {
         for(const well of instance.wells){
             well.dataDir = instance.dataDir;
             for(const dataset of well.datasets){
-                if(dataset.name == "EQUIPMENT"){
+                if(dataset.name == "EQUIPMENT" || dataset.name == "TOOL"){
                     dataset.curves.forEach(curve => {
                         curve.fs.end();
+                        delete curve.fs;
                     })
                 }
                 for(frame of myObj.frames){
@@ -39,6 +40,10 @@ socket.on("message", function(buffer) {
                             dataset.top = frame.index_min;
                             dataset.bottom = frame.index_max;
                         }
+                        dataset.curves.forEach(curve => {
+                            curve.startDepth = dataset.top;
+                            curve.stopDepth = dataset.bottom;
+                        })
                     }
                 }
             }
@@ -199,7 +204,7 @@ function eflr_data( myObj) {
 
             //console.log("onDatasetInfo: " + JSON.stringify(dataset));
 
-            if(channels){
+            if(Object.entries(channels).length != 0 || channels.constructor != Object){
                 //import curve to db
                 myObj['CHANNELS'].forEach(function(channelName, index){
                     const channel = channels[obname2Str(channelName)];
@@ -218,6 +223,7 @@ function eflr_data( myObj) {
                         _type = 'ARRAY';
                     }
                     let curve = {
+                        _id : "",
                         name: channelName.name,
                         unit: channel['UNITS'] ? channel['UNITS'][0] : "",
                         startDepth: dataset.top,
@@ -232,7 +238,23 @@ function eflr_data( myObj) {
                     //console.log("==> CCC " + JSON.stringify(channel, null, 2));
                 })
             } else {
-                datasets.push(dataset);
+                //30/05/2019
+                myObj['CHANNELS'].forEach(function(channelName, index){
+                    const curve = {
+                        _id: obname2Str(channelName), 
+                        name: channelName.name,
+                        unit: "",
+                        startDepth: dataset.top,
+                        stopDepth: dataset.bottom,
+                        step: dataset.step,
+                        path: "",
+                        dimension: 1,
+                        description: "",
+                        type: "NUMBER"
+                    }
+                    dataset.curves.push(curve);
+                })
+                //30/05/2019
             }
             instance.wells[instance.numberOfWell - 1].datasets.push(dataset);
         }
@@ -240,9 +262,38 @@ function eflr_data( myObj) {
             //console.log("===> CCC " + JSON.stringify(myObj));
             myObj.path = myObj.path.replace(instance.userInfo.dataPath + '/', '');
             channels[obname2Str(myObj)] = myObj;
+            //30/05/2019
+            const _datasets = instance.wells[instance.numberOfWell - 1].datasets;
+            if(_datasets.length > 0){
+               _datasets.forEach(function(_dataset){
+                   _dataset.curves.forEach(function(_curve, index){
+                       if(_curve._id == obname2Str(myObj)){
+                            if(index == 0 && myObj['INDEX-TYPE']){
+                                _dataset.unit = myObj['UNITS'] ? myObj['UNITS'][0] : "";
+                                return;
+                            }
+                            let _dimension = 1;
+                            let _type = myObj['REPRESENTATION-CODE'][0] < 19 ? 'NUMBER' : 'TEXT';
+                            if(myObj['DIMENSION']){
+                                for(const x of myObj['DIMENSION']){
+                                    _dimension *= x;
+                                }
+                            }
+                            if(_dimension > 1){
+                                _type = 'ARRAY';
+                            }
+                            _curve.dimension = _dimension;
+                            _curve.type = _type;
+                            _curve.unit= myObj['UNITS'] ? myObj['UNITS'][0] : "";
+                            _curve.path = myObj.path;
+                            _curve.description= myObj['LONG-NAME'] ? myObj['LONG-NAME'][0] : "";
+                       }
+                   })
+               })
+            }
+            //30/05/2019
         }
         else if(setType == "EQUIPMENT" || setType == "TOOL"){
-            console.log(JSON.stringify(myObj))
             const lastDatasetIndex = instance.wells[instance.numberOfWell - 1].datasets.length - 1;
             const dataset = instance.wells[instance.numberOfWell - 1].datasets[lastDatasetIndex];
             dataset.bottom += 1;
