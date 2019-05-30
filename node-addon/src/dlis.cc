@@ -125,8 +125,8 @@ void on_iflr_data (dlis_t* dlis);
 
 bool sized_str_cmp(sized_str_t* sstr, const char* str);
 bool obname_cmp(obname_t *obj1, obname_t* obj2);
-bool channel_obname_cmp(channel_t* chan, obname_t* obn);
-bool frame_obname_cmp(frame_t* frame, obname_t* obn);
+bool channel_obname_cmp(dlis_t* dlis, channel_t* chan, obname_t* obn);
+bool frame_obname_cmp(dlis_t* dlis, frame_t* frame, obname_t* obn);
 
 char g_buff[1024];
 int g_idx = 0;
@@ -1087,7 +1087,7 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
         while(curr_frame != NULL){
             channel_t* c_channel = curr_frame->channels;
             while(c_channel != NULL){
-                if(channel_obname_cmp(c_channel, &obname) == 1){
+                if(channel_obname_cmp(dlis, c_channel, &obname) == 1){
                     if(dlis->current_channel == NULL){
                         dlis->channels = c_channel;
                         dlis->current_channel = dlis->channels;
@@ -1213,7 +1213,7 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
         //printf("-->(%d-%d-%.*s)\n", val->u.obname_val.origin, val->u.obname_val.copy_number, val->u.obname_val.name.len, val->u.obname_val.name.buff);
         while(curr_channel != NULL) {
             if(curr_channel->seq_num == state->seq_num &&
-                channel_obname_cmp(curr_channel, &(val->u.obname_val))){
+                channel_obname_cmp(dlis, curr_channel, &(val->u.obname_val))){
                 if(dlis->current_frame->channels == NULL){
                     dlis->current_frame->channels = curr_channel;
                     dlis->current_frame->channels->index = 1; // set first channel in frame
@@ -1296,7 +1296,7 @@ void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
     
     while(dlis->current_frame != NULL){
         if(dlis->current_frame->seq_num == dlis->parse_state.seq_num &&
-            frame_obname_cmp(dlis->current_frame, frame_name)){
+            frame_obname_cmp(dlis, dlis->current_frame, frame_name)){
             break;
         }
         dlis->current_frame = dlis->current_frame->next;
@@ -1484,15 +1484,17 @@ bool obname_cmp(obname_t *obj1, obname_t* obj2){
             strncmp((const char*)obj1->name.buff, (const char*)obj2->name.buff, obj1->name.len) == 0;
 }
 
-bool channel_obname_cmp(channel_t* chan, obname_t* obn){ //return 1 if name of channel == obname
-    return chan->origin == obn->origin &&
+bool channel_obname_cmp(dlis_t* dlis, channel_t* chan, obname_t* obn){ //return 1 if name of channel == obname
+    return chan->seq_num == dlis->parse_state.seq_num &&
+            chan->origin == obn->origin &&
             chan->copy_number == obn->copy_number &&
             (int) strlen(chan->name) == obn->name.len &&
             strncmp(chan->name, (const char*)obn->name.buff, obn->name.len) == 0;
 }
 
-bool frame_obname_cmp(frame_t* frame, obname_t* obn){ //return 1 if name of frame == obname
-    return frame->origin == obn->origin &&
+bool frame_obname_cmp(dlis_t* dlis, frame_t* frame, obname_t* obn){ //return 1 if name of frame == obname
+    return frame->seq_num == dlis->parse_state.seq_num &&
+            frame->origin == obn->origin &&
             frame->copy_number == obn->copy_number &&
             (int) strlen(frame->name) == obn->name.len &&
             strncmp(frame->name, (const char*)obn->name.buff, obn->name.len) == 0;
