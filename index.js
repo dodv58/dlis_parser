@@ -298,9 +298,12 @@ function eflr_data( myObj) {
             const dataset = instance.wells[instance.numberOfWell - 1].datasets[lastDatasetIndex];
             dataset.bottom += 1;
             let line = "";
-            for(const property in myObj){
-                for(const curve of dataset.curves){
+            let _check = false;
+            for(const curve of dataset.curves){
+                _check = false;
+                for(const property in myObj){
                     if(property.toUpperCase() == curve.name){
+                        _check = true;
                         if(property.toUpperCase() == "NAME"){
                             curve.fs.write(dataset.bottom + " " + myObj[property] + "\n");
                         }
@@ -322,6 +325,9 @@ function eflr_data( myObj) {
                             curve.fs.write(dataset.bottom + " " + line + "\n");
                         }
                     }
+                }
+                if(!_check){
+                    curve.fs.write(dataset.bottom + " null\n"); 
                 }
             }
         }
