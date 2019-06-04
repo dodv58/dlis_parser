@@ -27,8 +27,10 @@ socket.on("message", function(buffer) {
             for(const dataset of well.datasets){
                 if(dataset.name == "EQUIPMENT" || dataset.name == "TOOL"){
                     dataset.curves.forEach(curve => {
-                        curve.fs.end();
-                        delete curve.fs;
+                        if(curve.fs){
+                            curve.fs.end();
+                            delete curve.fs;
+                        }
                     })
                 }
                 for(frame of myObj.frames){
