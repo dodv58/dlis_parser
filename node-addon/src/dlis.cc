@@ -9,6 +9,7 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#include <openssl/md5.h>
 
 
 #define __binn_free(x) binn_free(x); x = NULL
@@ -1120,7 +1121,17 @@ void on_eflr_component_object(dlis_t* dlis, obname_t obname){
             dlis->current_channel->name[obname.name.len] = '\0';
 
         }
-        sprintf(filepath, "%s%d-%d-%d-%.*s.txt", dlis->out_dir, state->seq_num, obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
+
+        unsigned char path_hashed[MD5_DIGEST_LENGTH];
+        char hash_str[1024];
+        sprintf(hash_str, "%d%d%d%.*s", state->seq_num, obname.origin, obname.copy_number, obname.name.len, obname.name.buff);
+        MD5((unsigned char*)hash_str, strlen(hash_str), path_hashed);
+        char path_str[MD5_DIGEST_LENGTH*2];
+        for(int i = 0; i < MD5_DIGEST_LENGTH; i++){
+            sprintf(&path_str[i*2], "%02x", path_hashed[i]);
+        }
+
+        sprintf(filepath, "%s%s.txt", dlis->out_dir,path_str);
         dlis->current_channel->fp = fopen(filepath, "w");	
         //printf("==> origin: %d, copy_number %d, name %s\n", dlis->current_channel->origin, dlis->current_channel->copy_number, dlis->current_channel->name);
     }
