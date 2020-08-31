@@ -1441,6 +1441,7 @@ void *do_parse(void *arguments) {
     binn* frames = binn_list();
     while(frame != NULL){
         frame_obj = binn_object();
+        binn_object_set_uint32(frame_obj, (char*)"seq_num", frame->seq_num);
         binn_object_set_uint32(frame_obj, (char*)"origin", frame->origin);
         binn_object_set_uint32(frame_obj, (char*)"copy_number", frame->copy_number);
         binn_object_set_str(frame_obj, (char*)"name", frame->name);

@@ -25,7 +25,7 @@ socket.on("message", function(buffer) {
         for(const well of instance.wells){
             well.dataDir = instance.dataDir;
             for(const dataset of well.datasets){
-                if(dataset.name == "EQUIPMENT" || dataset.name == "TOOL"){
+                if(dataset.name.endsWith("EQUIPMENT") || dataset.name.endsWith("TOOL")){
                     dataset.curves.forEach(curve => {
                         if(curve.fs){
                             curve.fs.end();
@@ -66,6 +66,7 @@ const sendingDataType =  {
 let setType;
 let channels = {};
 let seq_num = 0;
+let file_id = '';
 function safeObname2Str(obj) {
     if (typeof obj === "object" && Number.isInteger(obj.origin) && Number.isInteger(obj.copy_number) && obj.name) {
         return obname2Str(obj);
@@ -101,7 +102,7 @@ function eflr_data( myObj) {
         if(setType == "EQUIPMENT"){
             const dataset = {
                 _id: "EQUIPMENT",
-                name: "EQUIPMENT",
+                name: file_id + "_EQUIPMENT",
                 top: 0,
                 bottom: 0,
                 step: 1,
@@ -130,7 +131,7 @@ function eflr_data( myObj) {
         else if(setType == "TOOL"){
             const dataset = {
                 _id: "TOOL",
-                name: "TOOL",
+                name: file_id + "_TOOL",
                 top: 0,
                 bottom: 0,
                 step: 1,
@@ -165,6 +166,7 @@ function eflr_data( myObj) {
         const objName = obname2Str(myObj);
         if(setType == "FILE-HEADER"){
             seq_num = parseInt(myObj["SEQUENCE-NUMBER"]);
+            file_id = myObj["ID"].toString().trim()
             instance.numberOfWell += 1;
         } else if(setType == "ORIGIN"){
             if(instance.wells.length < instance.numberOfWell){
@@ -194,7 +196,7 @@ function eflr_data( myObj) {
 
             const dataset = {
                 _id: obname2Str(myObj),
-                name: myObj.name,
+                name: file_id + '_' + myObj.name,
                 top: _top,
                 bottom: _bottom,
                 step: _step,
