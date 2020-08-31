@@ -1206,6 +1206,12 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
             char _str[20] = {0};
             sprintf(_str, "%.*s", 10, val->u.lstr.buff);
             state->seq_num = atoi(_str);
+            if(state->seq_num > 1){
+                dlis->current_frame = &dlis->frames;
+                while (dlis->current_frame->next != NULL){
+                    dlis->current_frame = dlis->current_frame->next;
+                }
+            }
         }
     }
     //save frame and channel data for parsing fdata
