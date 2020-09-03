@@ -102,7 +102,7 @@ function eflr_data( myObj) {
         if(setType == "EQUIPMENT"){
             const dataset = {
                 _id: "EQUIPMENT",
-                name: file_id + "_EQUIPMENT",
+                name: file_id.length > 0 ? file_id + "_EQUIPMENT" : "EQUIPMENT",
                 top: 0,
                 bottom: 0,
                 step: 1,
@@ -131,7 +131,7 @@ function eflr_data( myObj) {
         else if(setType == "TOOL"){
             const dataset = {
                 _id: "TOOL",
-                name: file_id + "_TOOL",
+                name: file_id.length > 0 ? file_id + "_TOOL" : "TOOL",
                 top: 0,
                 bottom: 0,
                 step: 1,
@@ -165,8 +165,13 @@ function eflr_data( myObj) {
         //console.log(setType + " ===> " + JSON.stringify(myObj, null, 2));
         const objName = obname2Str(myObj);
         if(setType == "FILE-HEADER"){
-            seq_num = parseInt(myObj["SEQUENCE-NUMBER"]);
-            file_id = myObj["ID"].toString().trim()
+            seq_num = parseInt(myObj["SEQUENCE-NUMBER"][0]);
+            if(myObj["ID"]){
+                file_id = myObj["ID"][0].toString().trim()
+            }
+            else{
+                file_id = ''
+            }
             instance.numberOfWell += 1;
         } else if(setType == "ORIGIN"){
             if(instance.wells.length < instance.numberOfWell){
