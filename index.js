@@ -201,7 +201,7 @@ function eflr_data( myObj) {
 
             const dataset = {
                 _id: obname2Str(myObj),
-                name: file_id + '_' + myObj.name,
+                name: file_id.length > 0 ? file_id + '_' + myObj.name : myObj.name,
                 top: _top,
                 bottom: _bottom,
                 step: _step,
