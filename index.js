@@ -166,6 +166,7 @@ function eflr_data( myObj) {
         const objName = obname2Str(myObj);
         if(setType == "FILE-HEADER"){
             seq_num = parseInt(myObj["SEQUENCE-NUMBER"][0]);
+            channels[seq_num] = {}
             if(myObj["ID"]){
                 file_id = myObj["ID"][0].toString().trim()
             }
@@ -213,10 +214,10 @@ function eflr_data( myObj) {
 
             //console.log("onDatasetInfo: " + JSON.stringify(dataset));
 
-            if(Object.entries(channels).length != 0 || channels.constructor != Object){
+            if(Object.entries(channels[seq_num]).length != 0 || channels[seq_num].constructor != Object){
                 //import curve to db
                 myObj['CHANNELS'].forEach(function(channelName, index){
-                    const channel = channels[obname2Str(channelName)];
+                    const channel = channels[seq_num][obname2Str(channelName)];
                     if(index == 0 && myObj['INDEX-TYPE']){
                         dataset.unit = channel['UNITS'] ? channel['UNITS'][0] : "";
                         return;
@@ -270,7 +271,7 @@ function eflr_data( myObj) {
         else if(setType == "CHANNEL"){
             //console.log("===> CCC " + JSON.stringify(myObj));
             myObj.path = myObj.path.replace(instance.userInfo.dataPath + '/', '');
-            channels[obname2Str(myObj)] = myObj;
+            channels[seq_num][obname2Str(myObj)] = myObj;
             //30/05/2019
             const _datasets = instance.wells[instance.numberOfWell - 1].datasets;
             if(_datasets.length > 0){
@@ -350,7 +351,6 @@ function parseFile(fileName, userInfo, onEnd) {
     instance.onEnd = onEnd;
     instance.wells = [];
     instance.numberOfWell = 0;
-    channels = {};
 
     let dataDir = "";
     if(userInfo.dataPath){

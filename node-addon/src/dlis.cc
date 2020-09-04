@@ -780,13 +780,11 @@ int parse_iflr_data(dlis_t* dlis) {
         }
     }
     else {
-        /*
         printf("parse_iflr_data: EOD\n");
-        uint32_t lr_type = 0;
-        len = parse_ushort(&p_buffer[current_byte_idx], &lr_type);
-        if(len <= 0) return -1;
-        current_byte_idx += len;
-        */
+        //uint32_t lr_type = 0;
+        //len = parse_ushort(&p_buffer[current_byte_idx], &lr_type);
+        //if(len <= 0) return -1;
+        //current_byte_idx += len;
     }
     return current_byte_idx - dlis->byte_idx;
 }
@@ -1309,23 +1307,28 @@ void on_eflr_component_attrib_value(dlis_t* dlis,  sized_str_t* label, value_t *
 }
 
 void on_iflr_header(dlis_t* dlis, obname_t* frame_name, uint32_t index) {
-    dlis->current_frame = &dlis->frames;
-    
-    while(dlis->current_frame != NULL){
-        if(dlis->current_frame->seq_num == dlis->parse_state.seq_num &&
-            frame_obname_cmp(dlis, dlis->current_frame, frame_name)){
-            break;
+    if(dlis->parse_state.lrs_type == EOD){
+        dlis->current_frame = NULL;
+    }
+    else {
+        dlis->current_frame = &dlis->frames;
+        
+        while(dlis->current_frame != NULL){
+            if(dlis->current_frame->seq_num == dlis->parse_state.seq_num &&
+                frame_obname_cmp(dlis, dlis->current_frame, frame_name)){
+                break;
+            }
+            dlis->current_frame = dlis->current_frame->next;
         }
-        dlis->current_frame = dlis->current_frame->next;
+        if(dlis->current_frame == NULL){
+            printf("the frame (%d-%d-%d-%.*s) does not exist!!!\n", dlis->parse_state.seq_num, frame_name->origin, frame_name->copy_number, 
+                                                                frame_name->name.len, frame_name->name.buff);
+            exit(-1);
+        }
+        //printf("current frame: origin %d copy number %d name %s\n", dlis->current_frame->origin, 
+        //            dlis->current_frame->copy_number, dlis->current_frame->name);
+        dlis->current_frame->current_channel = dlis->current_frame->channels;
     }
-    if(dlis->current_frame == NULL){
-        printf("the frame (%d-%d-%.*s) does not exist!!!\n", frame_name->origin, frame_name->copy_number, 
-                                                            frame_name->name.len, frame_name->name.buff);
-        exit(-1);
-    }
-    //printf("current frame: origin %d copy number %d name %s\n", dlis->current_frame->origin, 
-    //            dlis->current_frame->copy_number, dlis->current_frame->name);
-    dlis->current_frame->current_channel = dlis->current_frame->channels;
 
     //send frame header to js
     //binn* g_obj = binn_object();
@@ -1933,19 +1936,21 @@ void parse(dlis_t *dlis) {
                 dlis->parse_state.lrs_byte_cnt += len;
                 dlis->parse_state.vr_byte_cnt += len;
                 //callback
-                if(dlis->parse_state.parsing_value_cnt >= dlis->parse_state.parsing_dimension) {
-                    dlis->on_iflr_data_f(dlis);
-                    if(dlis->current_frame->current_channel != NULL){
-                        dlis->current_frame->current_channel = dlis->current_frame->current_channel->f_next;
+                if (dlis->parse_state.lrs_type != EOD){
+                    if(dlis->parse_state.parsing_value_cnt >= dlis->parse_state.parsing_dimension) {
+                        dlis->on_iflr_data_f(dlis);
+                        if(dlis->current_frame->current_channel != NULL){
+                            dlis->current_frame->current_channel = dlis->current_frame->current_channel->f_next;
+                        }
                     }
-                }
-                else {
-                    int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;
-                    int lrs_remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt;
-                    if(avail_bytes <= lrs_remain_bytes)
-                        goto end_loop;
                     else {
-                        lrs_skip_unparsed_buff(dlis);
+                        int avail_bytes = dlis->max_byte_idx - dlis->byte_idx;
+                        int lrs_remain_bytes = dlis->parse_state.lrs_len - dlis->parse_state.lrs_byte_cnt;
+                        if(avail_bytes <= lrs_remain_bytes)
+                            goto end_loop;
+                        else {
+                            lrs_skip_unparsed_buff(dlis);
+                        }
                     }
                 }
                 next_state(dlis);
