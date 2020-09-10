@@ -363,7 +363,8 @@ int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *vr_version) {
     int current_byte_idx = dlis->byte_idx;
     byte_t *p_buffer = dlis->buffer[dlis->buffer_idx];
     //30/05/2019
-    if(dlis->nType){
+    //update 10/09/2020 ignore block of 12-byte if Format version does not match
+    while(dlis->nType && p_buffer[current_byte_idx + 2] != 0xFF){ //check format version of vr
         if(dlis->max_byte_idx - current_byte_idx < 12){
             return -1;
         }
@@ -375,7 +376,7 @@ int parse_vr_header(dlis_t *dlis, uint32_t *vr_len, uint32_t *vr_version) {
     
     if (dlis->max_byte_idx - current_byte_idx < VR_HEADER_LEN) 
         return -1;
-    //hexDump("VR HEADER: ", &p_buffer[current_byte_idx], 10);
+    //hexDump("VR HEADER: ", &p_buffer[dlis->byte_idx], 50);
 
     value_t val;
     value_invalidate(&val);
